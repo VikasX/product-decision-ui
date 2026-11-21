@@ -16,7 +16,22 @@ In PowerShell use `Copy-Item .env.example .env.local` for the copy step. Open ht
 
 The browser checks `GET /api/v1/health` once on page load using `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`). Configure FastAPI CORS to allow the frontend origin for cross-origin requests. Restart the dev server after changing the environment, or rebuild for production.
 
-The homepage works offline from the backend. Submitting the form displays “Analysis coming soon” without sending the product URL.
+Submitting an Amazon.in product URL calls `POST /api/v1/analysis`. The UI shows
+loading and error states, a buy/skip/insufficient-evidence judgment, collected and
+analysed review counts, coverage limitations, and reasons linked to expandable
+source reviews. It also displays the model, cache reuse and conservative cost
+reservations when supplied by the backend. The OpenAI key belongs in the backend.
+
+## Project progress
+
+Completed UI and backend features, validation and remaining work are maintained in
+[Project status](https://github.com/VikasX/product-decision/blob/main/STATUS.md).
+The local URL-to-analysis flow is working. UI lint and production build passed,
+and the integrated app analysed eight real reviews and reused the cached result.
+
+Amazon authentication verified in a separate browser session does not authenticate
+the backend collector. Broader review access and recommendation quality remain
+under evaluation.
 
 ## Checks
 
