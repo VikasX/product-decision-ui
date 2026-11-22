@@ -33,6 +33,19 @@ Amazon authentication verified in a separate browser session does not authentica
 the backend collector. Broader review access and recommendation quality remain
 under evaluation.
 
+## Vercel deployment
+
+The production UI is https://product-decision-ui.vercel.app. Set
+`NEXT_PUBLIC_API_BASE_URL=https://product-decision.vercel.app` in the Production
+environment and rebuild after changes. Git pushes to main trigger a new deployment.
+The backend allows this UI origin through CORS.
+
+The backend application health endpoint is `/api/v1/health`; database connectivity
+is checked separately at `/api/v1/health/db`. A connected API indicator confirms
+application liveness. Analysis also requires the backend to reach MongoDB for its
+shared cache and spending limits. The current Atlas IP access list blocks Vercel,
+so hosted analysis remains unavailable until a permitted network path is configured.
+
 ## Checks
 
 Run `npm run lint` and `npm run build`. Use `npm start` to serve the production build.
