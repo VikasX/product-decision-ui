@@ -44,7 +44,8 @@ The backend application health endpoint is `/api/v1/health`; database connectivi
 is checked separately at `/api/v1/health/db`. A connected API indicator confirms
 application liveness. Analysis also requires the backend to reach MongoDB for its
 shared cache and spending limits. Temporary Atlas access restored that connection.
-The latest hosted test collected no reviews because Amazon returned CAPTCHAs.
+The hosted UGREEN hub test collected and analysed 13 reviews after the backend moved
+to Mumbai. Amazon can still challenge requests or require sign-in for review pages.
 See the linked project status for the temporary access expiry and remaining work.
 
 ## Checks
