@@ -43,8 +43,9 @@ The backend allows this UI origin through CORS.
 The backend application health endpoint is `/api/v1/health`; database connectivity
 is checked separately at `/api/v1/health/db`. A connected API indicator confirms
 application liveness. Analysis also requires the backend to reach MongoDB for its
-shared cache and spending limits. The current Atlas IP access list blocks Vercel,
-so hosted analysis remains unavailable until a permitted network path is configured.
+shared cache and spending limits. Temporary Atlas access restored that connection.
+The latest hosted test collected no reviews because Amazon returned CAPTCHAs.
+See the linked project status for the temporary access expiry and remaining work.
 
 ## Checks
 
