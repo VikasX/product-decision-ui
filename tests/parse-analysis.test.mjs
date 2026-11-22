@@ -6,6 +6,9 @@ import ts from "typescript";
 const source = await readFile(new URL("../src/services/parse-analysis.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
 const { parseAnalysis } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`);
+const reportSource = await readFile(new URL("../src/services/report.ts", import.meta.url), "utf8");
+const reportCompiled = ts.transpileModule(reportSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
+const { overallPercentages, sampleGroups, reportText, verdictLabels } = await import(`data:text/javascript;base64,${Buffer.from(reportCompiled.outputText).toString("base64")}`);
 
 function response() {
   return {
@@ -51,6 +54,51 @@ test("accepts legacy results without inventing missing metadata or findings", ()
   assert.deepEqual(parsed.product.rating_distribution, []);
   assert.equal(parsed.positive_findings, null);
   assert.equal(parsed.reviews[0].title, null);
+});
+
+test("key percentages use the overall histogram and preserve unknown buckets", () => {
+  const distribution = [5, 4, 3, 2, 1].map((stars, i) => ({ stars, percentage: [45, 12, 11, 6, 26][i] }));
+  assert.deepEqual(overallPercentages(distribution), { positive: 57, neutral: 11, negative: 32 });
+  assert.deepEqual(overallPercentages(distribution.slice(1)), { positive: null, neutral: 11, negative: 32 });
+  assert.deepEqual(overallPercentages([]), { positive: null, neutral: null, negative: null });
+});
+
+test("sample composition handles empty, missing and unrated categories", () => {
+  assert.deepEqual(sampleGroups([]).map(g => g.count), [0, 0, 0, 0]);
+  const data = parseAnalysis(response());
+  assert.deepEqual(sampleGroups(data.reviews).map(g => g.count), [0, 0, 2, 0]);
+  assert.deepEqual(sampleGroups([...data.reviews, { ...data.reviews[0], stars: null }]).map(g => g.count), [0, 0, 2, 1]);
+});
+
+test("all verdict states export the actual counts, quotes and limitations", () => {
+  for (const verdict of Object.keys(verdictLabels)) {
+    const data = parseAnalysis({ ...response(), verdict });
+    const report = reportText(data);
+    assert.match(report, new RegExp(verdictLabels[verdict]));
+    assert.match(report, /2 collected; 2 AI analyzed/);
+    assert.match(report, /The adhesive is weak/);
+    assert.match(report, /Fixture sample/);
+    assert.match(report, /not a measure of overall satisfaction/);
+    assert.doesNotMatch(report, /21 AI analyzed|₹2,499/);
+  }
+});
+
+test("optional product details and reliability citations are validated", () => {
+  const data = response();
+  data.product.image_url = "https://m.media-amazon.com/images/I/fixture.jpg";
+  data.product.price_text = "₹699.00";
+  data.product.specifications = [{ label: "Power", value: "5 V" }];
+  data.reliability_findings = data.negative_findings;
+  data.key_takeaway = "Check installation.";
+  const parsed = parseAnalysis(data);
+  assert.equal(parsed.product.price_text, "₹699.00");
+  assert.equal(parsed.reliability_findings.length, 1);
+  assert.match(reportText(parsed), /Power: 5 V/);
+  data.product.image_url = "https://evil.example/image.jpg";
+  assert.throws(() => parseAnalysis(data), /invalid analysis/);
+  data.product.image_url = null;
+  data.reliability_findings = [{ ...data.negative_findings[0], evidence: [{ review_id: "R1", quote: "Fake durability" }] }];
+  assert.throws(() => parseAnalysis(data), /invalid analysis/);
 });
 
 for (const [name, mutate] of [

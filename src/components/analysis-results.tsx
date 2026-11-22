@@ -1,153 +1,94 @@
-import { ExternalLink } from "lucide-react";
-import type { Finding, ProductAnalysis, Review, Verdict } from "@/types/api";
+import { Check, ChevronDown, Download, ExternalLink, FileText, Minus, Package, ShieldCheck, Star, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
+import type { Finding, ProductAnalysis, Review } from "@/types/api";
+import { overallPercentages, reportText, sampleGroups, verdictLabels } from "@/services/report";
 
-const verdictLabels: Record<Verdict, string> = {
-  worth_considering: "Worth Considering",
-  proceed_with_caution: "Proceed with Caution",
-  not_recommended: "Not Recommended",
-  insufficient_evidence: "More Evidence Needed",
-};
-
-const verdictColors: Record<Verdict, string> = {
-  worth_considering: "text-teal-800",
-  proceed_with_caution: "text-amber-800",
-  not_recommended: "text-red-800",
-  insufficient_evidence: "text-stone-700",
-};
-
-const issueLabels = {
-  product_defect: "Reported defect",
-  delivery: "Delivery",
-  subjective_preference: "Personal preference",
-  missing_feature: "Missing functionality",
-  usability: "Usability",
-  other: "Other concern",
-};
+const issueLabels = { product_defect: "Reported defect", delivery: "Delivery", subjective_preference: "Personal preference", missing_feature: "Missing functionality", usability: "Usability", other: "Other concern" };
 
 function ReviewLinks({ ids, reviews }: { ids: string[]; reviews: Review[] }) {
-  return <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-    {ids.map(id => <a key={id} href={`#review-${encodeURIComponent(id)}`} onClick={() => {
-      const review = document.getElementById(`review-${encodeURIComponent(id)}`);
-      if (review instanceof HTMLDetailsElement) review.open = true;
-    }} className="text-sm font-medium text-teal-800 underline underline-offset-4">
-      Review {reviews.findIndex(review => review.id === id) + 1}
-    </a>)}
-  </div>;
+  return <div className="review-links">{ids.map(id => <a key={id} href={`#review-${encodeURIComponent(id)}`} onClick={() => {
+    const group = document.getElementById("supporting-reviews");
+    if (group instanceof HTMLDetailsElement) group.open = true;
+    const review = document.getElementById(`review-${encodeURIComponent(id)}`);
+    if (review instanceof HTMLDetailsElement) review.open = true;
+  }}>Review {reviews.findIndex(review => review.id === id) + 1}</a>)}</div>;
 }
 
-function Findings({ title, findings, reviews, negative = false }: {
-  title: string; findings: Finding[] | null; reviews: Review[]; negative?: boolean;
-}) {
-  return <section aria-label={title}>
-    <h3 className={`font-semibold ${negative ? "text-red-800" : "text-teal-800"}`}>{title}</h3>
-    {findings?.length ? <ul className="mt-4 space-y-5">
-      {findings.map((finding, index) => <li key={index}>
-        <p className="text-sm leading-relaxed text-stone-700">{finding.text}</p>
-        <ReviewLinks ids={finding.review_ids} reviews={reviews} />
-        {finding.evidence.length > 0 && <details className="mt-2 text-xs text-stone-600">
-          <summary className="cursor-pointer py-1">Source excerpts</summary>
-          <ul className="mt-2 space-y-2">{finding.evidence.map((evidence, quoteIndex) => <li key={quoteIndex}>
-            <blockquote className="border-l-2 border-stone-200 pl-3 leading-relaxed">“{evidence.quote}”</blockquote>
-            <ReviewLinks ids={[evidence.review_id]} reviews={reviews} />
-          </li>)}</ul>
-        </details>}
-      </li>)}
-    </ul> : <p className="mt-3 text-sm text-stone-500">{findings === null ? "Findings unavailable in this saved analysis." : "No supported findings identified in the available reviews."}</p>}
-  </section>;
+function FindingList({ findings, reviews }: { findings: Finding[] | null; reviews: Review[] }) {
+  return findings?.length ? <ul className="finding-list">{findings.map((finding, index) => <li key={index}>
+    <Check size={16} className="finding-check" aria-hidden /><div><p>{finding.text}</p><ReviewLinks ids={finding.review_ids} reviews={reviews} />
+      <details className="source-excerpts"><summary>Source excerpts</summary>{finding.evidence.map((quote, i) => <blockquote key={i}>“{quote.quote}”<ReviewLinks ids={[quote.review_id]} reviews={reviews} /></blockquote>)}</details>
+    </div>
+  </li>)}</ul> : <p className="muted empty-finding">{findings === null ? "Unavailable in this saved analysis." : "No supported findings in the accessible reviews."}</p>;
 }
 
-function Ratings({ product }: { product: ProductAnalysis["product"] }) {
-  return <div className="mt-6 border-t border-stone-200 pt-5">
-    <h3 className="text-sm font-semibold">Amazon ratings</h3>
-    <p className="mt-2 text-sm text-stone-600">
-      {product.overall_rating === null ? "Overall rating unavailable" : <><strong className="text-xl font-semibold text-stone-800">{product.overall_rating.toFixed(1)}</strong> / 5</>}
-      {product.rating_count !== null && <> · {product.rating_count.toLocaleString()} ratings</>}
-    </p>
-    {product.rating_distribution.some(bucket => bucket.percentage !== null) ? <div className="mt-4 space-y-2" aria-label="Amazon rating distribution">
-      {[5, 4, 3, 2, 1].map(stars => {
-        const percentage = product.rating_distribution.find(bucket => bucket.stars === stars)?.percentage;
-        return <div key={stars} className="flex items-center gap-3 text-xs">
-          <span className="w-10 shrink-0 text-stone-600">{stars} star</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-100" aria-hidden>
-            {percentage != null && <div className={`h-full rounded-full ${stars <= 2 ? "bg-amber-600" : "bg-teal-700"}`} style={{ width: `${percentage}%` }} />}
-          </div>
-          <span className="w-21 shrink-0 text-right tabular-nums text-stone-600">{percentage == null ? "Unavailable" : `${percentage}%`}</span>
-        </div>;
-      })}
-    </div> : <p className="mt-3 text-xs text-stone-500">Rating distribution unavailable.</p>}
-  </div>;
+function Laurel({ mirror = false }: { mirror?: boolean }) {
+  return <svg className={`laurel ${mirror ? "mirror" : ""}`} aria-hidden viewBox="0 0 24 24" fill="currentColor"><path d="M11 2C8 6 5 11 6 16c.4 2 1.3 3.6 2.5 4.8-.4-.9-.6-2-.6-3.2 0-3.5 1.7-6.8 3.1-9.6zM4 9c0 2.2.8 4.2 2 5.8C5.4 13.3 5 11.7 5 10c0-1.8.5-3.5 1.4-5C5 6.3 4 7.6 4 9z" /></svg>;
 }
 
 export function AnalysisResults({ result }: { result: ProductAnalysis }) {
-  const hasRefinedFindings = Boolean(result.positive_findings?.length || result.negative_findings?.length || result.recurring_issues?.length) || result.reasons.length === 0;
+  const product = result.product;
+  const percentages = overallPercentages(product.rating_distribution);
+  const groups = sampleGroups(result.reviews);
   const sample = result.sample_statistics;
-  return <div className="mt-6 space-y-7">
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-      <a href={result.product.url} target="_blank" rel="noopener noreferrer" className="flex items-start justify-between gap-3 text-sm font-medium leading-relaxed text-stone-600 hover:text-teal-800">
-        {result.product.title || result.product.asin}<ExternalLink size={16} aria-hidden className="mt-1 shrink-0" />
-      </a>
-      <h3 className={`mt-4 text-3xl font-semibold tracking-tight ${verdictColors[result.verdict]}`}>{verdictLabels[result.verdict]}</h3>
-      <p className="mt-3 leading-relaxed text-stone-700">{result.summary}</p>
-      <p className="mt-5 text-sm text-stone-600">{result.reviews.length} reviews collected · {result.coverage.reviews_analyzed} analyzed</p>
-      {(result.usage || result.cached) && <p className="mt-2 text-xs text-stone-500">
-        {result.usage && <>Model · {result.usage.model}</>}
-        {result.cached && <>{result.usage ? " · " : ""}Cached · no new AI call</>}
-        {!result.cached && result.usage && result.usage.reserved_cost_usd > 0 && <span title="Conservative spending reservation for this request. Actual billing may be lower."> · ${result.usage.reserved_cost_usd.toFixed(4)} reserved</span>}
-      </p>}
-      <Ratings product={result.product} />
+  const refined = Boolean(result.positive_findings?.length || result.negative_findings?.length || result.recurring_issues?.length || result.reliability_findings?.length);
+
+  function exportReport() {
+    const url = URL.createObjectURL(new Blob([reportText(result)], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = `BuyWise-${product.asin}.txt`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  return <div className="analysis-results">
+    <div className="product-verdict-row">
+      <section className="card product-card" aria-label="Product information">
+        {product.image_url && <div className="product-image">
+          {/* Amazon supplies a validated image URL; a standard image avoids a server-side image fetch. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={product.image_url} alt={product.title} referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement!.style.display = "none"; }} />
+        </div>}
+        <div className="product-copy"><h2><a href={product.url} target="_blank" rel="noopener noreferrer">{product.title || product.asin}<ExternalLink size={14} aria-label="Opens Amazon" /></a></h2>
+          <div className="product-meta"><span className="amazon-badge"><b>a</b> Amazon.in</span><span>ASIN · {product.asin}</span></div>
+          <div className="product-rating"><strong>{product.overall_rating?.toFixed(1) ?? "Rating unavailable"}</strong>{product.overall_rating != null && <span className="stars" aria-label={`${product.overall_rating} out of 5 stars`}>{[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} aria-hidden fill={star <= Math.round(product.overall_rating!) ? "currentColor" : "none"} />)}</span>}{product.rating_count != null && <span className="muted">({product.rating_count.toLocaleString("en-IN")} ratings)</span>}</div>
+          <div className="sample-badges"><span className="sample-badge"><Check size={13} aria-hidden />{result.coverage.reviews_analyzed} reviews analyzed</span><span className="muted">{result.reviews.length} collected</span></div>
+          {product.price_text && <p className="product-price">{product.price_text}<span className="muted">Observed on Amazon · may change</span></p>}
+          {product.specifications.length > 0 && <dl className="product-specs">{product.specifications.map((spec, index) => <div key={index}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>)}</dl>}
+          {result.cached && <p className="cache-label">Cached analysis · no new AI call</p>}
+        </div>
+      </section>
+      <section className={`verdict-card verdict-${result.verdict}`} aria-label="Final verdict"><div className="verdict-badge"><Check size={15} aria-hidden />Final Verdict</div><div className="verdict-title"><Laurel /><h2>{verdictLabels[result.verdict]}</h2><Laurel mirror /></div><p>{result.summary}</p><span className="verdict-accent" /></section>
     </div>
 
-    {sample && <p className="text-sm leading-relaxed text-stone-600">
-      In the collected sample · {sample.negative_count} reviews at 1–2 stars · {sample.positive_count} at 4–5 stars
-      {sample.neutral_count > 0 && <> · {sample.neutral_count} at 3 stars</>}
-      {sample.unrated_count > 0 && <> · {sample.unrated_count} without a rating</>}
-      {sample.oldest_review_date && sample.newest_review_date && <span className="mt-1 block text-xs text-stone-500">Dated reviews · {sample.oldest_review_date} to {sample.newest_review_date}</span>}
-    </p>}
+    <div className="three-column-grid analytics-row">
+      <section className="card rating-card" aria-label="Amazon rating distribution"><h3>Rating Distribution {product.rating_count != null && <span>({product.rating_count.toLocaleString("en-IN")})</span>}</h3><div className="rating-bars">{[5, 4, 3, 2, 1].map(stars => {
+        const percentage = product.rating_distribution.find(b => b.stars === stars)?.percentage;
+        return <div className="rating-bar-row" key={stars}><span>{stars} ★</span><div className="bar-track" aria-hidden><div className={`bar-fill star-${stars}`} style={{ width: `${percentage ?? 0}%` }} /></div><span className="bar-value">{percentage == null ? "N/A" : `${percentage}%`}</span></div>;
+      })}</div><p className="chart-note">Amazon overall ratings. N/A means unavailable.</p></section>
+      <section className="card sentiment-card" aria-label="Written review sample"><h3>Review Sentiment <span>({result.reviews.length} collected)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map(group => {
+        const percentage = result.reviews.length ? group.count / result.reviews.length * 100 : 0;
+        const start = result.reviews.length ? groups.slice(0, groups.indexOf(group)).reduce((sum, previous) => sum + previous.count, 0) / result.reviews.length * 100 : 0;
+        return <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${percentage} ${100 - percentage}`} strokeDashoffset={-start} />;
+      })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Rating-based, deliberately balanced sample. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>
+      <section className="card percentage-card" aria-label="Overall Amazon rating percentages"><h3>Key Percentages <span>(Amazon overall ratings)</span></h3><div className="percentage-grid">{[
+        { name: "Positive", tone: "positive", value: percentages.positive, Icon: ThumbsUp },
+        { name: "Neutral", tone: "neutral", value: percentages.neutral, Icon: Minus },
+        { name: "Negative", tone: "negative", value: percentages.negative, Icon: ThumbsDown },
+      ].map(({ name, tone, value, Icon }) => <div className="percentage-tile" key={name}><span className={`percentage-icon ${tone}`}><Icon size={17} aria-hidden /></span><strong>{value == null ? "N/A" : `${value}%`}</strong><span>{name}</span></div>)}</div><p className="chart-note">4–5★ / 3★ / 1–2★ · unavailable buckets stay N/A.</p></section>
+    </div>
 
-    {hasRefinedFindings && <div className="grid gap-7 border-t border-stone-200 pt-6 sm:grid-cols-2 sm:gap-8">
-      <Findings title="Top negative findings" findings={result.negative_findings} reviews={result.reviews} negative />
-      <Findings title="Top positive findings" findings={result.positive_findings} reviews={result.reviews} />
-    </div>}
+    <div className="three-column-grid insights-row">
+      <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3><FindingList findings={result.positive_findings} reviews={result.reviews} /></section>
+      <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3><FindingList findings={result.negative_findings} reviews={result.reviews} /></section>
+      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3><FindingList findings={result.reliability_findings} reviews={result.reviews} />
+        {result.recurring_issues && result.recurring_issues.length > 0 && <div className="recurring-issues">{result.recurring_issues.map((issue, index) => <div key={index}><p className="issue-label">{issueLabels[issue.category]} · {issue.mention_count} cited reviews</p><p>{issue.text}</p><ReviewLinks ids={issue.review_ids} reviews={result.reviews} /></div>)}</div>}
+        {result.key_takeaway && <div className="key-takeaway"><h4>Key Takeaway</h4><p>{result.key_takeaway}</p></div>}
+      </section>
+    </div>
 
-    {result.recurring_issues && result.recurring_issues.length > 0 && <section aria-label="Recurring issues" className="border-t border-stone-200 pt-6">
-      <h3 className="font-semibold text-red-800">Recurring issues</h3>
-      <ul className="mt-4 space-y-5">{result.recurring_issues.map((issue, index) => {
-        const critical = ["product_defect", "missing_feature", "usability"].includes(issue.category);
-        return <li key={index} className={`border-l-2 pl-4 ${critical ? "border-red-300" : "border-amber-300"}`}>
-          <p className={`text-xs font-medium ${critical ? "text-red-800" : "text-amber-900"}`}>{issueLabels[issue.category]} · {issue.mention_count} supporting reviews</p>
-          <p className="mt-1 text-sm leading-relaxed text-stone-700">{issue.text}</p>
-          <ReviewLinks ids={issue.review_ids} reviews={result.reviews} />
-        </li>;
-      })}</ul>
-    </section>}
+    {!refined && result.reasons.length > 0 && <section className="card legacy-reasons"><h3>Reasons Behind the Verdict</h3>{result.reasons.map((reason, i) => <div key={i}><p>{reason.text}</p><ReviewLinks ids={reason.review_ids} reviews={result.reviews} /></div>)}</section>}
 
-    {!hasRefinedFindings && result.reasons.length > 0 && <section aria-label="Reasons behind the verdict" className="border-t border-stone-200 pt-6">
-      <h3 className="font-semibold">Reasons behind the verdict</h3>
-      <ul className="mt-4 space-y-5">{result.reasons.map((reason, index) => <li key={index}>
-        <p className="text-sm leading-relaxed text-stone-700">{reason.text}</p>
-        <ReviewLinks ids={reason.review_ids} reviews={result.reviews} />
-      </li>)}</ul>
-    </section>}
+    <div className="footer-actions"><section className="card evidence-limitations" aria-label="Evidence limitations"><h3><FileText size={20} aria-hidden />Evidence Limitations</h3><div>{result.coverage.limitations.length ? <ul>{result.coverage.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul> : <p>No additional limitations were reported.</p>}{sample?.oldest_review_date && sample.newest_review_date && <p className="sample-date">Dated sample · {sample.oldest_review_date} to {sample.newest_review_date}</p>}</div></section><div className="report-actions"><a className="primary-button" href="#supporting-reviews" onClick={() => { const el = document.getElementById("supporting-reviews"); if (el instanceof HTMLDetailsElement) el.open = true; }}><FileText size={17} aria-hidden />Supporting Reviews ({result.reviews.length})<span aria-hidden>→</span></a><button type="button" className="secondary-button" onClick={exportReport}><Download size={17} aria-hidden />Export Report</button></div></div>
 
-    <section aria-label="Data limitations" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-      <h3 className="font-semibold">Data limitations</h3>
-      {result.coverage.limitations.length > 0 ? <ul className="mt-2 list-disc space-y-1 pl-5">{result.coverage.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul> : <p className="mt-2">No additional limitations were reported by the source.</p>}
-      {productMissing(result) && <p className="mt-2">Some Amazon rating information was unavailable.</p>}
-    </section>
-
-    {result.reviews.length > 0 && <section aria-label="Supporting reviews" className="border-t border-stone-200 pt-6">
-      <h3 className="mb-3 font-semibold">Supporting reviews</h3>
-      <div className="space-y-2">{result.reviews.map((review, index) => <details key={review.id} id={`review-${encodeURIComponent(review.id)}`} className="scroll-mt-6 rounded-xl border border-stone-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium leading-relaxed">Review {index + 1}{review.stars !== null ? ` · ${review.stars}/5 stars` : " · Rating unavailable"}{review.title && <span className="mt-1 block text-stone-700">{review.title}</span>}</summary>
-        {review.date && <p className="mt-3 text-xs text-stone-500">{review.date}</p>}
-        {review.variant && <p className="mt-2 text-xs text-stone-500">Variant · {review.variant}</p>}
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-stone-700">{review.text}</p>
-        <a href={review.source_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-medium text-teal-800 underline underline-offset-4">View source on Amazon</a>
-      </details>)}</div>
-    </section>}
+    <details id="supporting-reviews" className="card supporting-reviews"><summary><span><FileText size={19} aria-hidden />Supporting Reviews <span className="muted">({result.reviews.length})</span></span><ChevronDown size={18} aria-hidden /></summary><p className="chart-note">Accessible source text; other variants may be included. Review ratings do not guarantee the body is positive or negative.</p>{result.reviews.length ? <div className="review-list">{result.reviews.map((review, index) => <details className="review-detail" key={review.id} id={`review-${encodeURIComponent(review.id)}`}><summary><span>Review {index + 1} · {review.stars != null ? `${review.stars}/5 stars` : "Rating unavailable"}{review.title && <b>{review.title}</b>}</span><ChevronDown size={16} aria-hidden /></summary><div className="review-body">{review.date && <p className="muted">{review.date}</p>}{review.variant && <p className="muted"><Package size={13} aria-hidden />Variant · {review.variant}</p>}<p className="review-text">{review.text}</p><a href={review.source_url} target="_blank" rel="noopener noreferrer">View source on Amazon <ExternalLink size={13} aria-hidden /></a></div></details>)}</div> : <p className="empty-finding muted">No written reviews were accessible.</p>}</details>
   </div>;
-}
-
-function productMissing(result: ProductAnalysis) {
-  return result.product.overall_rating === null || result.product.rating_count === null || result.product.rating_distribution.length < 5 || result.product.rating_distribution.some(bucket => bucket.percentage === null);
 }

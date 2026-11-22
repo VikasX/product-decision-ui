@@ -1,18 +1,19 @@
-import { ScanSearch } from "lucide-react";
-import { ApiStatus } from "@/components/api-status";
+import { ShoppingBag, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { AnalysisForm } from "@/components/analysis-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Home() {
   return <>
-    <header className="border-b border-stone-200 bg-white">
-      <div className="mx-auto flex min-h-18 max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
-        <div className="flex items-center gap-2.5 font-semibold tracking-tight"><ScanSearch aria-hidden className="size-8 rounded-lg bg-teal-800 p-1.5 text-white" />Product Intelligence</div>
-        <ApiStatus />
+    <header className="site-header">
+      <div className="header-inner">
+        <div className="brand-group"><Link href="/" className="brand" aria-label="BuyWise AI home"><span className="brand-icon"><ShoppingBag size={21} aria-hidden /></span><span>BuyWise <b>AI</b></span></Link><span className="brand-caption">AI Product Review Analyzer</span></div>
+        <div className="header-actions"><span className="smart-badge"><Sparkles size={15} aria-hidden /> Make Smarter Buying Decisions</span><ThemeToggle /></div>
       </div>
     </header>
-    <main className="mx-auto max-w-3xl px-5 pt-20 pb-16 sm:px-8 sm:pt-32">
-      <h1 className="text-5xl leading-tight font-semibold tracking-[-0.055em] sm:text-7xl">Know Before You Buy</h1>
-      <p className="mt-5 max-w-xl text-lg leading-relaxed text-stone-600">Investigate Amazon product reviews with AI to understand what buyers are saying before you decide.</p>
+    <main className="main-content">
+      <div className="hero"><h1>Know Before <em>You Buy</em></h1>
+      <p>Analyze Amazon product reviews with AI to get a clear, evidence-based verdict.</p></div>
       <AnalysisForm />
     </main>
   </>;

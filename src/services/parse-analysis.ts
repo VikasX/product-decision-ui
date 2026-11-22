@@ -58,6 +58,16 @@ function date(value: unknown): string | null {
   return result;
 }
 
+function productImage(value: unknown): string | null {
+  if (value == null) return null;
+  const result = text(value);
+  try {
+    const url = new URL(result);
+    if (url.protocol !== "https:" || !["m.media-amazon.com", "images-na.ssl-images-amazon.com", "images-eu.ssl-images-amazon.com"].includes(url.hostname) || url.username || url.password || (url.port && url.port !== "443")) invalid();
+  } catch { invalid(); }
+  return result;
+}
+
 function references(value: unknown, reviewIds: Set<string>): string[] {
   const result = array(value).map(text);
   if (!result.length || new Set(result).size !== result.length || result.some(id => !reviewIds.has(id))) invalid();
@@ -146,6 +156,11 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
       overall_rating: product.overall_rating == null ? null : number(product.overall_rating, 1, 5),
       rating_count: product.rating_count == null ? null : count(product.rating_count),
       rating_distribution: distribution,
+      image_url: productImage(product.image_url), price_text: nullableText(product.price_text),
+      specifications: product.specifications == null ? [] : array(product.specifications).map(value => {
+        const spec = object(value);
+        return { label: text(spec.label), value: text(spec.value) };
+      }),
     },
     verdict, summary: text(data.summary), reviews,
     reasons: array(data.reasons).map(value => {
@@ -155,6 +170,8 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
     positive_findings: data.positive_findings == null ? null : array(data.positive_findings).map(value => finding(value, reviews)),
     negative_findings: data.negative_findings == null ? null : array(data.negative_findings).map(value => finding(value, reviews)),
     recurring_issues: issues, sample_statistics: sample,
+    reliability_findings: data.reliability_findings == null ? null : array(data.reliability_findings).map(value => finding(value, reviews)),
+    key_takeaway: nullableText(data.key_takeaway),
     coverage: { reviews_analyzed: analyzed, limitations: array(coverage.limitations).map(text) },
     cached: boolean(data.cached),
   };

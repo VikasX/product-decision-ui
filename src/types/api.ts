@@ -33,6 +33,9 @@ export type ProductAnalysis = {
     overall_rating: number | null;
     rating_count: number | null;
     rating_distribution: { stars: number; percentage: number | null }[];
+    image_url: string | null;
+    price_text: string | null;
+    specifications: { label: string; value: string }[];
   };
   verdict: Verdict;
   summary: string;
@@ -41,6 +44,8 @@ export type ProductAnalysis = {
   negative_findings: Finding[] | null;
   recurring_issues: RecurringIssue[] | null;
   sample_statistics: SampleStatistics | null;
+  reliability_findings: Finding[] | null;
+  key_takeaway: string | null;
   reviews: Review[];
   coverage: { reviews_analyzed: number; limitations: string[] };
   cached: boolean;
