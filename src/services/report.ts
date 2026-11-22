@@ -1,33 +1,52 @@
 import type { ProductAnalysis, Review } from "@/types/api";
 
+// Keep readable labels in one place for the rendered report and its text export.
 export const verdictLabels = {
   worth_considering: "Worth Considering", proceed_with_caution: "Proceed with Caution",
   not_recommended: "Not Recommended", insufficient_evidence: "More Evidence Needed",
 };
 
+// Sum observed 4+5, 3 and 1+2 star buckets; missing components stay unknown, not zero.
 export function overallPercentages(distribution: ProductAnalysis["product"]["rating_distribution"]) {
+  // This local helper adds only the requested star buckets, preserving missing data as unknown.
   const sum = (stars: number[]) => {
+    // Look up each requested percentage; optional chaining returns undefined when its bucket is absent.
     const values = stars.map(star => distribution.find(bucket => bucket.stars === star)?.percentage);
+    // A partial group is not a complete percentage, so do not present it as one.
     if (values.some(value => value == null)) return null;
+    // Add the known numeric bucket values after the missing-data check above.
     const total = values.reduce<number>((total, value) => total + value!, 0);
+    // Reject impossible totals and round valid display values to one decimal place.
     return total <= 100 ? Math.round(total * 10) / 10 : null;
   };
+  // Overall positive means 4+5 stars, neutral means 3 stars, and negative means 1+2 stars.
   return { positive: sum([4, 5]), neutral: sum([3]), negative: sum([1, 2]) };
 }
 
+// Counts describe only accessible collected reviews, not overall buyer satisfaction.
 export function sampleGroups(reviews: Review[]) {
+  // Create the displayed output from existing data only; this function does not contact any service.
   return [
+    // Count only reviews rated exactly four or five; wording is not independently sentiment-classified here.
     { label: "Positive", range: "4★–5★", count: reviews.filter(r => r.stars === 4 || r.stars === 5).length, tone: "positive" },
+    // Three-star reviews form the neutral rating group even if their written text is mixed.
     { label: "Neutral", range: "3★", count: reviews.filter(r => r.stars === 3).length, tone: "neutral" },
+    // One- and two-star reviews form the low-rating group used in the sample ring.
     { label: "Negative", range: "1★–2★", count: reviews.filter(r => r.stars === 1 || r.stars === 2).length, tone: "negative" },
+    // Keep missing/unrecognized exact stars separate so those reviews remain in the sample total.
     { label: "Unrated", range: "", count: reviews.filter(r => ![1, 2, 3, 4, 5].includes(r.stars ?? 0)).length, tone: "unrated" },
   ];
 }
 
+// Convert an existing validated report to text with sources/limitations; no network or AI work.
 export function reportText(result: ProductAnalysis): string {
+  // Use the same observed product fields as the on-screen report.
   const product = result.product;
+  // Format a heading, findings, citation IDs and source excerpts for each written-evidence section.
   const section = (title: string, findings: ProductAnalysis["positive_findings"]) => [title,
     ...(findings?.length ? findings.map(f => `${f.text}\nReferences: ${f.review_ids.join(", ")}\n${f.evidence.map(e => `${e.review_id}: “${e.quote}”`).join("\n")}`) : ["No supported findings available."]), ""];
+  // Create the displayed output from existing data only; this function does not contact any service.
+  // Assemble text lines from the current report, including unavailable values, sources and limitations.
   return ["BUYWISE AI — PRODUCT REVIEW REPORT", product.title, product.url, `ASIN: ${product.asin}`,
     ...(product.price_text ? [`Observed price: ${product.price_text} (may change)`] : []),
     ...product.specifications.map(s => `${s.label}: ${s.value}`), "",
