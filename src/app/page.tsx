@@ -2,6 +2,7 @@ import { ShoppingBag, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { AnalysisForm } from "@/components/analysis-form";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LangChainLab } from "@/components/langchain-lab";
 
 export default function Home() {
   return <>
@@ -15,6 +16,7 @@ export default function Home() {
       <div className="hero"><h1>Know Before <em>You Buy</em></h1>
       <p>Analyze Amazon product reviews with AI to get a clear, evidence-based verdict.</p></div>
       <AnalysisForm />
+      {process.env.NEXT_PUBLIC_DEV_MODE === "true" && <LangChainLab />}
     </main>
   </>;
 }

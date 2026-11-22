@@ -224,3 +224,11 @@ details[open] > summary > svg { transform: rotate(180deg); }
   .supporting-reviews > summary { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+.langchain-lab { margin-top: 32px; }
+.langchain-lab > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; font-size: 14px; font-weight: 600; }
+.langchain-lab > summary > span { display: flex; align-items: center; gap: 9px; }
+.lab-content { border-top: 1px solid var(--line); margin-top: 17px; padding-top: 17px; }
+.lab-workflow { font-size: 11px; color: var(--positive); font-weight: 600; }
+.lab-content > .analysis-search { max-width: 760px; }
+.lab-content .analysis-results { margin-top: 20px; }

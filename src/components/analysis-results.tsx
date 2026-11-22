@@ -1,14 +1,17 @@
 import { Check, ChevronDown, Download, ExternalLink, FileText, Minus, Package, ShieldCheck, Star, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
+import { createContext, useContext } from "react";
 import type { Finding, ProductAnalysis, Review } from "@/types/api";
 import { overallPercentages, reportText, sampleGroups, verdictLabels } from "@/services/report";
 
 const issueLabels = { product_defect: "Reported defect", delivery: "Delivery", subjective_preference: "Personal preference", missing_feature: "Missing functionality", usability: "Usability", other: "Other concern" };
+const ReviewScope = createContext("");
 
 function ReviewLinks({ ids, reviews }: { ids: string[]; reviews: Review[] }) {
-  return <div className="review-links">{ids.map(id => <a key={id} href={`#review-${encodeURIComponent(id)}`} onClick={() => {
-    const group = document.getElementById("supporting-reviews");
+  const prefix = useContext(ReviewScope);
+  return <div className="review-links">{ids.map(id => <a key={id} href={`#${prefix}review-${encodeURIComponent(id)}`} onClick={() => {
+    const group = document.getElementById(`${prefix}supporting-reviews`);
     if (group instanceof HTMLDetailsElement) group.open = true;
-    const review = document.getElementById(`review-${encodeURIComponent(id)}`);
+    const review = document.getElementById(`${prefix}review-${encodeURIComponent(id)}`);
     if (review instanceof HTMLDetailsElement) review.open = true;
   }}>Review {reviews.findIndex(review => review.id === id) + 1}</a>)}</div>;
 }
@@ -25,7 +28,7 @@ function Laurel({ mirror = false }: { mirror?: boolean }) {
   return <svg className={`laurel ${mirror ? "mirror" : ""}`} aria-hidden viewBox="0 0 24 24" fill="currentColor"><path d="M11 2C8 6 5 11 6 16c.4 2 1.3 3.6 2.5 4.8-.4-.9-.6-2-.6-3.2 0-3.5 1.7-6.8 3.1-9.6zM4 9c0 2.2.8 4.2 2 5.8C5.4 13.3 5 11.7 5 10c0-1.8.5-3.5 1.4-5C5 6.3 4 7.6 4 9z" /></svg>;
 }
 
-export function AnalysisResults({ result }: { result: ProductAnalysis }) {
+export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnalysis; idPrefix?: string }) {
   const product = result.product;
   const percentages = overallPercentages(product.rating_distribution);
   const groups = sampleGroups(result.reviews);
@@ -35,11 +38,11 @@ export function AnalysisResults({ result }: { result: ProductAnalysis }) {
   function exportReport() {
     const url = URL.createObjectURL(new Blob([reportText(result)], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
-    link.href = url; link.download = `BuyWise-${product.asin}.txt`; link.click();
+    link.href = url; link.download = `BuyWise-${idPrefix}${product.asin}.txt`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return <div className="analysis-results">
+  return <ReviewScope.Provider value={idPrefix}><div className="analysis-results">
     <div className="product-verdict-row">
       <section className="card product-card" aria-label="Product information">
         {product.image_url && <div className="product-image">
@@ -87,8 +90,8 @@ export function AnalysisResults({ result }: { result: ProductAnalysis }) {
 
     {!refined && result.reasons.length > 0 && <section className="card legacy-reasons"><h3>Reasons Behind the Verdict</h3>{result.reasons.map((reason, i) => <div key={i}><p>{reason.text}</p><ReviewLinks ids={reason.review_ids} reviews={result.reviews} /></div>)}</section>}
 
-    <div className="footer-actions"><section className="card evidence-limitations" aria-label="Evidence limitations"><h3><FileText size={20} aria-hidden />Evidence Limitations</h3><div>{result.coverage.limitations.length ? <ul>{result.coverage.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul> : <p>No additional limitations were reported.</p>}{sample?.oldest_review_date && sample.newest_review_date && <p className="sample-date">Dated sample · {sample.oldest_review_date} to {sample.newest_review_date}</p>}</div></section><div className="report-actions"><a className="primary-button" href="#supporting-reviews" onClick={() => { const el = document.getElementById("supporting-reviews"); if (el instanceof HTMLDetailsElement) el.open = true; }}><FileText size={17} aria-hidden />Supporting Reviews ({result.reviews.length})<span aria-hidden>→</span></a><button type="button" className="secondary-button" onClick={exportReport}><Download size={17} aria-hidden />Export Report</button></div></div>
+    <div className="footer-actions"><section className="card evidence-limitations" aria-label="Evidence limitations"><h3><FileText size={20} aria-hidden />Evidence Limitations</h3><div>{result.coverage.limitations.length ? <ul>{result.coverage.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul> : <p>No additional limitations were reported.</p>}{sample?.oldest_review_date && sample.newest_review_date && <p className="sample-date">Dated sample · {sample.oldest_review_date} to {sample.newest_review_date}</p>}</div></section><div className="report-actions"><a className="primary-button" href={`#${idPrefix}supporting-reviews`} onClick={() => { const el = document.getElementById(`${idPrefix}supporting-reviews`); if (el instanceof HTMLDetailsElement) el.open = true; }}><FileText size={17} aria-hidden />Supporting Reviews ({result.reviews.length})<span aria-hidden>→</span></a><button type="button" className="secondary-button" onClick={exportReport}><Download size={17} aria-hidden />Export Report</button></div></div>
 
-    <details id="supporting-reviews" className="card supporting-reviews"><summary><span><FileText size={19} aria-hidden />Supporting Reviews <span className="muted">({result.reviews.length})</span></span><ChevronDown size={18} aria-hidden /></summary><p className="chart-note">Accessible source text; other variants may be included. Review ratings do not guarantee the body is positive or negative.</p>{result.reviews.length ? <div className="review-list">{result.reviews.map((review, index) => <details className="review-detail" key={review.id} id={`review-${encodeURIComponent(review.id)}`}><summary><span>Review {index + 1} · {review.stars != null ? `${review.stars}/5 stars` : "Rating unavailable"}{review.title && <b>{review.title}</b>}</span><ChevronDown size={16} aria-hidden /></summary><div className="review-body">{review.date && <p className="muted">{review.date}</p>}{review.variant && <p className="muted"><Package size={13} aria-hidden />Variant · {review.variant}</p>}<p className="review-text">{review.text}</p><a href={review.source_url} target="_blank" rel="noopener noreferrer">View source on Amazon <ExternalLink size={13} aria-hidden /></a></div></details>)}</div> : <p className="empty-finding muted">No written reviews were accessible.</p>}</details>
-  </div>;
+    <details id={`${idPrefix}supporting-reviews`} className="card supporting-reviews"><summary><span><FileText size={19} aria-hidden />Supporting Reviews <span className="muted">({result.reviews.length})</span></span><ChevronDown size={18} aria-hidden /></summary><p className="chart-note">Accessible source text; other variants may be included. Review ratings do not guarantee the body is positive or negative.</p>{result.reviews.length ? <div className="review-list">{result.reviews.map((review, index) => <details className="review-detail" key={review.id} id={`${idPrefix}review-${encodeURIComponent(review.id)}`}><summary><span>Review {index + 1} · {review.stars != null ? `${review.stars}/5 stars` : "Rating unavailable"}{review.title && <b>{review.title}</b>}</span><ChevronDown size={16} aria-hidden /></summary><div className="review-body">{review.date && <p className="muted">{review.date}</p>}{review.variant && <p className="muted"><Package size={13} aria-hidden />Variant · {review.variant}</p>}<p className="review-text">{review.text}</p><a href={review.source_url} target="_blank" rel="noopener noreferrer">View source on Amazon <ExternalLink size={13} aria-hidden /></a></div></details>)}</div> : <p className="empty-finding muted">No written reviews were accessible.</p>}</details>
+  </div></ReviewScope.Provider>;
 }

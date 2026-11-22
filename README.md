@@ -50,6 +50,27 @@ only in the backend. Additive fields fall back safely with older cached response
 
 ## Project progress
 
+### LangChain Lab
+
+Set `NEXT_PUBLIC_DEV_MODE=true` in `.env.local` and restart/rebuild to show the
+separate collapsible Lab below the original application. Missing, false or any
+other value hides it. The normal form/API/layout remain unchanged. The Lab submits
+to `/api/v1/analysis/langchain` with independent loading/error/result state and
+reuses the existing report component with scoped review IDs. Its workflow indicator
+reads LangChain / GPT-5 nano. Both reports can coexist without overlapping anchors.
+
+This public flag is visibility only. The backend independently defaults the Lab
+off, requires `LANGCHAIN_LAB_ENABLED=true` and accepts loopback clients only. Vercel
+denies the experimental endpoint. Use a local backend base URL to compare workflows;
+do not put API keys or Lab credentials in NEXT_PUBLIC variables. No public backend
+access was enabled by this addition. See the backend guide for configuration.
+
+20 frontend tests cover both endpoint paths, parsed responses, isolated errors,
+no retry/fallback and existing report validation. The production build was checked
+with the Lab absent by default. Browser fixtures cover both reports together,
+separate reference expansion and Lab errors preserving the normal report. Tests
+and previews make no paid LLM calls.
+
 Completed UI and backend features, validation and remaining work are maintained in
 [Project status](https://github.com/VikasX/product-decision/blob/main/STATUS.md).
 The local URL-to-analysis flow is working. UI lint and production build passed,

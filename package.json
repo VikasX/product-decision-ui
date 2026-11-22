@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test tests/parse-analysis.test.mjs"
+    "test": "node --test tests/parse-analysis.test.mjs tests/langchain-api.test.mjs"
   },
   "dependencies": {
     "next": "^16.4.6",
