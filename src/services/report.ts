@@ -25,10 +25,14 @@ export function overallPercentages(distribution: ProductAnalysis["product"]["rat
 
 // This is a rating-based display summary, not a replacement for the stored AI verdict.
 export function ratingOverview(product: ProductAnalysis["product"]) {
+  // Derive the displayed positive share only from the observed four- and five-star histogram buckets.
   const positive = overallPercentages(product.rating_distribution).positive;
+  // Use at most two explicitly negative Amazon topic labels to keep the overview short and source-backed.
   const concerns = product.feedback_topics.filter(t => t.sentiment === "negative").slice(0, 2);
   return {
+    // Missing histogram values stay unavailable. This heading describes ratings, not an AI buy recommendation.
     title: positive == null ? "Positive ratings unavailable" : `${positive}% Positive Ratings`,
+    // Mention supplied concern names when available; otherwise explain what the percentage represents.
     summary: concerns.length
       ? `Reported concerns: ${concerns.map(t => t.name).join(" and ")}.`
       : "Based on Amazon’s overall 4–5★ rating share.",
@@ -37,8 +41,11 @@ export function ratingOverview(product: ProductAnalysis["product"]) {
 
 // Keep display text short without generating new claims or changing the saved source.
 export function shortText(text: string, limit = 160): string {
+  // Preserve text that already fits; this display helper never edits the stored source or sends an API request.
   if (text.length <= limit) return text;
+  // Find the last word boundary before the limit so the shortened preview usually ends on a whole word.
   const end = text.lastIndexOf(" ", limit - 1);
+  // Fall back to a character cut for long unbroken words, then add an ellipsis to make truncation visible.
   return text.slice(0, end > 0 ? end : limit - 1).trimEnd() + "…";
 }
 

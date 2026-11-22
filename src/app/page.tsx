@@ -17,6 +17,7 @@ export default function Home() {
     <main className="main-content">
       <div className="hero"><h1>Know Before <em>You Buy</em></h1>
       <p>Choose a product. Explore the evidence. Make a more confident buying decision.</p></div>
+      {/* The client catalog owns category/product selection, saved-evidence loading and the explicit analysis action. */}
       <DemoCatalog />
       {/* Build-time visibility only; the backend separately restricts access to the Lab endpoint. */}
       {process.env.NEXT_PUBLIC_DEV_MODE === "true" && <LangChainLab />}
