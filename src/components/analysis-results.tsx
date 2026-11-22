@@ -49,7 +49,7 @@ function Laurel({ mirror = false }: { mirror?: boolean }) {
 }
 
 // Validated report in; render observed ratings, sampled evidence and verdict without another API call.
-export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnalysis; idPrefix?: string }) {
+export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = false }: { result: ProductAnalysis; idPrefix?: string; hideSourceEvidence?: boolean }) {
   // Use the product evidence from the validated API report; this component does not fetch more data.
   const product = result.product;
   // Overall percentages use Amazon histogram buckets; the ring uses collected review counts.
@@ -99,7 +99,7 @@ export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnal
           {/* Explain cache reuse to the user; viewing this report did not start another AI request. */}
           {result.cached && <p className="cache-label">Cached analysis · no new AI call</p>}
     {/* Show available Amazon AI summary/topics with explicit source labels; topic counts are not failure rates. */}
-    {(product.customers_say || product.feedback_topics.length > 0) && <section className="amazon-summary" aria-label="Amazon customer summary"><h3>Customers say <span>Amazon AI-generated summary</span></h3>{product.customers_say && <p>{product.customers_say}</p>}<div className="feedback-topics">{product.feedback_topics.map((topic, i) => <div key={i} className={`feedback-topic topic-${topic.sentiment ?? "unknown"}`}><strong>{topic.name}</strong><span>{topic.sentiment ?? "Sentiment unavailable"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</span>{(topic.positive_count != null || topic.negative_count != null) && <span>{topic.positive_count != null ? `${topic.positive_count} positive` : ""}{topic.positive_count != null && topic.negative_count != null ? " · " : ""}{topic.negative_count != null ? `${topic.negative_count} negative` : ""}</span>}{topic.text && <p>{topic.text}</p>}</div>)}</div><p className="chart-note">Amazon’s summary and topics are secondary evidence. Mention counts are not failure rates.</p></section>}
+    {!hideSourceEvidence && (product.customers_say || product.feedback_topics.length > 0) && <section className="amazon-summary" aria-label="Amazon customer summary"><h3>Customers say <span>Amazon AI-generated summary</span></h3>{product.customers_say && <p>{product.customers_say}</p>}<div className="feedback-topics">{product.feedback_topics.map((topic, i) => <div key={i} className={`feedback-topic topic-${topic.sentiment ?? "unknown"}`}><strong>{topic.name}</strong><span>{topic.sentiment ?? "Sentiment unavailable"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</span>{(topic.positive_count != null || topic.negative_count != null) && <span>{topic.positive_count != null ? `${topic.positive_count} positive` : ""}{topic.positive_count != null && topic.negative_count != null ? " · " : ""}{topic.negative_count != null ? `${topic.negative_count} negative` : ""}</span>}{topic.text && <p>{topic.text}</p>}</div>)}</div><p className="chart-note">Amazon’s summary and topics are secondary evidence. Mention counts are not failure rates.</p></section>}
         </div>
       </section>
       {/* Use the fixed verdict value for styling and its display label for the heading; show the returned explanation. */}

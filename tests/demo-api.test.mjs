@@ -21,7 +21,7 @@ test("browsing categories/products/evidence makes GET requests only", async t =>
     requests.push({ url, options });
     if (url.endsWith("/categories")) return Response.json([{ id: "led", name: "LED Lights", product_count: 1 }]);
     if (url.endsWith("/products")) return Response.json([product]);
-    return Response.json({ id: "prd1", version: 1, limitations: ["Saved evidence"], topic_excerpts: [{ topic: "Quality", text: "Visible excerpt", source_file: "source.png", partial: true }] });
+    return Response.json({ id: "prd1", version: 1, product: { customers_say: null, feedback_topics: [] }, limitations: ["Saved evidence"], topic_excerpts: [{ topic: "Quality", text: "Visible excerpt", source_file: "source.png", partial: true }] });
   });
   const signal = new AbortController().signal;
   assert.equal((await demo.getDemoCategories(signal))[0].id, "led");

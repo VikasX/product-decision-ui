@@ -10,6 +10,7 @@ export type DemoProduct = {
 };
 export type DemoEvidence = {
   id: string; version: number; limitations: string[];
+  product: Pick<ProductAnalysis["product"], "customers_say" | "feedback_topics">;
   topic_excerpts: { topic: string; text: string; source_file: string; partial: boolean }[];
 };
 
@@ -37,7 +38,11 @@ export async function getDemoProducts(category: string, signal: AbortSignal): Pr
 export async function getDemoEvidence(id: string, signal: AbortSignal): Promise<DemoEvidence> {
   const data = await (await apiGet(`/api/v1/demo/products/${encodeURIComponent(id)}`, signal)).json();
   if (data?.id !== id || !Number.isSafeInteger(data.version) || !Array.isArray(data.limitations) || data.limitations.some((s: unknown) => typeof s !== "string") ||
-    !Array.isArray(data.topic_excerpts) || data.topic_excerpts.some((e: DemoEvidence["topic_excerpts"][number]) => !e || typeof e.topic !== "string" || typeof e.text !== "string" || typeof e.source_file !== "string" || typeof e.partial !== "boolean")) invalid();
+    !Array.isArray(data.topic_excerpts) || data.topic_excerpts.some((e: DemoEvidence["topic_excerpts"][number]) => !e || typeof e.topic !== "string" || typeof e.text !== "string" || typeof e.source_file !== "string" || typeof e.partial !== "boolean") ||
+    !data.product || (data.product.customers_say !== null && typeof data.product.customers_say !== "string") ||
+    !Array.isArray(data.product.feedback_topics) || data.product.feedback_topics.some((topic: DemoEvidence["product"]["feedback_topics"][number]) => !topic || typeof topic.name !== "string" ||
+      (topic.text != null && typeof topic.text !== "string") || (topic.sentiment != null && !["positive", "negative", "mixed"].includes(topic.sentiment)) ||
+      [topic.mention_count, topic.positive_count, topic.negative_count].some(n => n != null && (!Number.isSafeInteger(n) || n < 0)))) invalid();
   return data;
 }
 

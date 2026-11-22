@@ -242,7 +242,7 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
     // Match backend Unicode/spacing and common case-folding rules before checking excerpt membership.
     const normalize = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase().replace(/ß/g, "ss").replace(/ς/g, "σ");
     // Reject unsupported quotes, unknown topic evidence or sentiment disagreement with its explicit source.
-    if (!sourceText || !quote.trim() || !normalize(sourceText).includes(normalize(quote)) || (sourceType === "topic" && (!topic?.text && !topic?.sentiment)) || (sourceType === "topic" && topic?.sentiment && topic.sentiment !== sentiment)) invalid();
+    if (!sourceText || !quote.trim() || !normalize(sourceText).includes(normalize(quote)) || (sourceType === "topic" && (!topic?.text && !topic?.sentiment)) || (sourceType === "topic" && topic?.sentiment && topic.sentiment !== "mixed" && topic.sentiment !== sentiment)) invalid();
     return { text: text(finding.text), source: sourceType as "customers_say" | "topic", topic: topicName, quote, sentiment: sentiment as "positive" | "negative" | "mixed" };
   });
   if (!/^[A-Z0-9]{10}$/.test(asin)) invalid();

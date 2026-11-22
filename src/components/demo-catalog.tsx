@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Database, Lightbulb, LoaderCircle, Package, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Check, Lightbulb, LoaderCircle, Package, Sparkles, Star } from "lucide-react";
 import { AnalysisResults } from "@/components/analysis-results";
 import { analyzeDemoProduct, demoImageUrl, getDemoCategories, getDemoEvidence, getDemoProducts } from "@/services/demo-api";
 import type { DemoCategory, DemoEvidence, DemoProduct } from "@/services/demo-api";
@@ -78,14 +78,12 @@ export function DemoCatalog() {
   }
 
   return <section className="demo-catalog" aria-label="Saved product catalog">
-    <div className="demo-intro"><span><Database size={14} aria-hidden />Saved evidence · real AI analysis</span><p>No live Amazon access required.</p></div>
     <div className="demo-categories" role="tablist" aria-label="Product categories">
       {categories.map(c => <button key={c.id} role="tab" aria-selected={category === c.id} disabled={analyzing} onClick={() => void chooseCategory(c.id)}><Lightbulb size={18} aria-hidden />{c.name}<span>{c.product_count}</span></button>)}
     </div>
     {loading && <p role="status" className="demo-status"><LoaderCircle size={18} className="animate-spin" aria-hidden />Loading saved products…</p>}
     {!loading && !categories.length && !error && <p className="demo-status">No saved product datasets are available yet.</p>}
     {products.length > 0 && <>
-      <div className="demo-section-title"><h2><Lightbulb size={19} aria-hidden />{categories.find(c => c.id === category)?.name}</h2><span>Screenshot datasets</span></div>
       <div className="demo-products">{products.map(product => <button type="button" key={product.id} className={`demo-product card ${selected?.id === product.id ? "is-selected" : ""}`} aria-pressed={selected?.id === product.id} disabled={analyzing} onClick={() => void chooseProduct(product)}>
         <span className="demo-data-badge">{selected?.id === product.id ? <><Check size={12} aria-hidden />Selected</> : "Saved data"}</span>
         <span className="demo-product-image">{product.image_path ? <>
@@ -97,15 +95,18 @@ export function DemoCatalog() {
         {product.price_text && <b className="demo-price">{product.price_text}</b>}
       </button>)}</div>
     </>}
-    {selected && <div className="demo-selection card"><div><span className="demo-eyebrow">Selected product · dataset v{selected.version}</span><h3>{selected.title}</h3><p>{selected.price_text} · {selected.overall_rating ?? "Unknown"}/5 · saved screenshot evidence</p></div>
-      <div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
-      <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button></div>
+    {selected && <div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
+      <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button>
     </div>}
-    {evidence && <details className="demo-evidence"><summary>Inspect saved evidence · no AI call</summary><p>Source: supplied screenshots. Topic snippets have no verified review IDs, dates or star ratings.</p><ul>{evidence.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul>{evidence.topic_excerpts.map((e, i) => <blockquote key={i}><strong>{e.topic} · {e.partial ? "partial excerpt" : "visible excerpt"}</strong><p>“{e.text}”</p><small>{e.source_file.split("/").at(-1)}</small></blockquote>)}</details>}
+    {evidence && <details className="demo-evidence"><summary>View Source Evidence</summary>
+      <p>Supplied screenshots · Amazon AI-generated summary/topics · partial excerpts have no verified review IDs, dates or star ratings.</p>
+      {evidence.product.customers_say && <><h3>Amazon Customers Say</h3><p>{evidence.product.customers_say}</p></>}
+      {evidence.product.feedback_topics.map((topic, i) => <div className="demo-source-topic" key={i}><strong>{topic.name} · {topic.sentiment ?? "Unknown"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</strong>{topic.text && <p>{topic.text}</p>}</div>)}
+      <ul>{evidence.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul>{evidence.topic_excerpts.map((e, i) => <blockquote key={i}><strong>{e.topic} · {e.partial ? "partial excerpt" : "visible excerpt"}</strong><p>“{e.text}”</p><small>{e.source_file.split("/").at(-1)}</small></blockquote>)}</details>}
     {error && <p role="alert" className="analysis-error">{error}</p>}
-    <section aria-label="Full Analysis" aria-busy={analyzing} className="demo-full-analysis"><h2>Full Analysis</h2>
-      <p role="status" className="demo-status">{analyzing ? "Analyzing the saved evidence with GPT-5 nano…" : result ? `${workflow === "httpx" ? "HTTPX" : "LangChain"} / GPT-5 nano · ${result.cached ? "Cached analysis" : "Analysis ready"}` : selected ? "Ready when you are. Click Analyze Product to generate an evidence-based verdict." : "Select a product above to begin."}</p>
-      {result && <AnalysisResults result={result} idPrefix="demo-" />}
-    </section>
+    {(analyzing || result) && <section aria-label="Full Analysis" aria-busy={analyzing} className="demo-full-analysis"><h2>Full Analysis</h2>
+      <p role="status" className="demo-status">{analyzing ? "Analyzing the saved evidence with GPT-5 nano…" : `${workflow === "httpx" ? "HTTPX" : "LangChain"} / GPT-5 nano · ${result?.cached ? "Cached analysis" : "Analysis ready"}`}</p>
+      {result && <AnalysisResults result={result} idPrefix="demo-" hideSourceEvidence />}
+    </section>}
   </section>;
 }

@@ -58,6 +58,17 @@ test("missing Amazon summaries and partial topics remain unavailable", () => {
   assert.deepEqual(parsed.amazon_findings, []);
 });
 
+test("a negative quoted finding can come from a mixed topic without relabelling its source", () => {
+  const data = response();
+  data.product.feedback_topics = [{ name: "Quality", sentiment: "mixed", text: "Some like it, while others report faulty products." }];
+  data.amazon_findings = [{ text: "Some customers report defects.", source: "topic", topic: "Quality", sentiment: "negative", quote: "faulty products" }];
+  const parsed = parseAnalysis(data);
+  assert.equal(parsed.product.feedback_topics[0].sentiment, "mixed");
+  assert.equal(parsed.amazon_findings[0].sentiment, "negative");
+  data.product.feedback_topics[0].sentiment = "positive";
+  assert.throws(() => parseAnalysis(data), /invalid analysis/);
+});
+
 test("existing report cards render separately labelled Amazon sources and scoped review links", async () => {
   const component = await readFile(new URL("../src/components/analysis-results.tsx", import.meta.url), "utf8");
   let code = ts.transpileModule(component, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -76,6 +87,10 @@ test("existing report cards render separately labelled Amazon sources and scoped
   assert.match(html, /id="langchain-review-R1"/);
   assert.match(html, /href="#langchain-review-R1"/);
   assert.doesNotMatch(html, /class="card amazon-summary"|7\+7\+7|filtered review requests/);
+  const compact = renderToStaticMarkup(createElement(AnalysisResults, { result: parseAnalysis(data), idPrefix: "demo-", hideSourceEvidence: true }));
+  assert.doesNotMatch(compact, /aria-label="Amazon customer summary"/);
+  assert.equal((compact.match(/aria-label="Final verdict"/g) ?? []).length, 1);
+  assert.match(compact, /Amazon reports adhesion concerns/);
 });
 
 test("preserves supplied rating metadata, findings and verified source references", () => {

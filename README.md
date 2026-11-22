@@ -10,6 +10,12 @@ press Analyze Product. Browsing/selection does not call Amazon or OpenAI. The bu
 calls the saved-product analysis endpoint and renders the existing validated report.
 Overall percentages still use the Amazon histogram, not the hand-collected sample.
 
+The selected card is the only pre-analysis product panel. View Source Evidence is
+collapsed by default, and the Full Analysis dashboard appears only after Analyze.
+Technical model failures display an error instead of a More Evidence Needed buying
+verdict. The report component keeps its original source display for other callers;
+Demo Mode places that raw evidence in the single collapsed source section instead.
+
 The product image is a CSS view of the supplied details screenshot; it is not an
 invented product image. The Gesto thumbnail crop is matched to that screenshot.
 Source excerpts without identifiable review metadata are shown separately as partial
