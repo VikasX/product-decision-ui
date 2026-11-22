@@ -255,3 +255,51 @@ details[open] > summary > svg { transform: rotate(180deg); }
 .topic-negative { border-left-color: var(--negative); }
 .topic-mixed { border-left-color: var(--neutral); }
 .amazon-findings { margin-top: 15px; }
+/* Demo browsing uses the same palette variables as the existing report and theme toggle. */
+.demo-catalog { margin-top: 28px; }
+.demo-intro { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; align-items: center; color: var(--muted); font-size: 11px; }
+.demo-intro > span { display: inline-flex; align-items: center; gap: 6px; color: var(--forest); font-weight: 600; }
+.demo-categories { display: flex; gap: 12px; overflow-x: auto; padding: 7px 2px; margin: 28px 0; }
+.demo-categories button { border: 1px solid var(--line); background: var(--surface); color: var(--copy); display: inline-flex; gap: 10px; align-items: center; min-width: 175px; justify-content: center; padding: 13px 20px; border-radius: 10px; box-shadow: var(--shadow); font-weight: 600; }
+.demo-categories button[aria-selected="true"] { background: var(--button); color: white; border-color: var(--positive); }
+.demo-categories button > span { opacity: .7; font-size: 11px; }
+.demo-section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+.demo-section-title h2 { display: flex; gap: 9px; align-items: center; font-size: 19px; }
+.demo-section-title > span, .demo-eyebrow { color: var(--muted); font-size: 10px; }
+.demo-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
+.demo-product { position: relative; display: flex; flex-direction: column; gap: 10px; text-align: left; color: var(--ink); padding: 14px; max-width: 310px; width: 100%; }
+.demo-product.is-selected { border-color: var(--positive); box-shadow: 0 0 0 1px var(--positive); }
+.demo-data-badge { position: absolute; z-index: 1; right: 23px; top: 22px; display: inline-flex; gap: 3px; align-items: center; border-radius: 20px; padding: 3px 8px; background: #fff0c7; color: #523d12; font-size: 9px; }
+.is-selected .demo-data-badge { background: var(--button); color: #fff; }
+.demo-product-image { display: grid; place-items: center; position: relative; width: 100%; aspect-ratio: 1.08; overflow: hidden; border-radius: 10px; background: var(--surface-soft); }
+/* Crop the supplied Gesto details screenshot in CSS; retain the original source file unchanged. */
+.demo-product-image img { position: absolute; max-width: none; width: 293.66%; height: auto; left: -13.66%; top: -16.58%; }
+.demo-product > strong { font-size: 13px; line-height: 1.6; }
+.demo-rating { color: #d68a12; display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.demo-rating small { color: var(--muted); font-size: 10px; }
+.demo-price { font-size: 20px; color: var(--forest); }
+.demo-selection { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 20px; }
+.demo-selection h3 { margin: 3px 0 6px; font-size: 15px; max-width: 760px; }
+.demo-selection p { font-size: 11px; color: var(--muted); }
+.demo-analyze-actions { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.demo-analyze-actions label { font-size: 11px; color: var(--muted); }
+.demo-analyze-actions select { display: block; margin-top: 4px; max-width: 220px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); padding: 6px; }
+.demo-evidence { font-size: 11px; color: var(--muted); margin-top: 18px; }
+.demo-evidence summary { color: var(--forest); padding: 10px 0; }
+.demo-evidence ul { padding-left: 20px; }
+.demo-evidence blockquote { border-left: 2px solid var(--line); margin: 12px 0; padding: 5px 14px; }
+.demo-evidence blockquote p { color: var(--copy); margin: 4px 0; }
+.demo-full-analysis { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 24px; }
+.demo-full-analysis > h2 { color: var(--forest); font-size: 21px; font-family: var(--font-heading), Georgia, serif; }
+.demo-status { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; padding: 18px 0; }
+@media (max-width: 540px) {
+  .demo-selection { flex-direction: column; align-items: stretch; gap: 14px; }
+  .demo-products { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .demo-product { padding: 10px; }
+  .demo-product > strong { font-size: 11px; }
+  .demo-rating { flex-wrap: wrap; }
+  .demo-data-badge { right: 15px; top: 15px; font-size: 8px; }
+  .demo-intro { text-align: center; }
+}
+/* Keep full source titles in the selected-product panel while making catalog cards easy to scan. */
+.demo-product > strong { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

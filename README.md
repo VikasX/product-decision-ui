@@ -2,6 +2,27 @@
 
 Frontend for the AI Product Review Intelligence Agent, built with Next.js App Router, strict TypeScript, Tailwind CSS and Lucide React.
 
+## Saved-product Demo Mode (current home page)
+
+The home page lists only categories/products returned by the backend saved catalog.
+Choose LED Lights, select Gesto, optionally inspect the screenshot excerpts, then
+press Analyze Product. Browsing/selection does not call Amazon or OpenAI. The button
+calls the saved-product analysis endpoint and renders the existing validated report.
+Overall percentages still use the Amazon histogram, not the hand-collected sample.
+
+The product image is a CSS view of the supplied details screenshot; it is not an
+invented product image. The Gesto thumbnail crop is matched to that screenshot.
+Source excerpts without identifiable review metadata are shown separately as partial
+evidence and never presented as verified full reviews.
+
+The normal URL form/API modules remain available in the source. The developer flag
+still reveals the original local Lab; it also exposes the saved-dataset workflow
+selector. LangChain requests retain the backend's independent local-only opt-in.
+For adding datasets, see `backend/product/README.md` in the backend repository.
+
+Targeted verification: `npm test`, `npx tsc --noEmit`, ESLint for changed application
+files and `npm run build`. Model responses are mocked in tests; no paid call runs.
+
 ## Local development
 
 Use Node.js 20.19 or later. From the repository root run:
