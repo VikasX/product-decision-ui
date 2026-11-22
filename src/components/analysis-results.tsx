@@ -1,6 +1,6 @@
 import { Check, ChevronDown, Download, ExternalLink, FileText, Minus, Package, ShieldCheck, Star, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
 import { createContext, useContext } from "react";
-import type { Finding, ProductAnalysis, Review } from "@/types/api";
+import type { AmazonFinding, Finding, ProductAnalysis, Review } from "@/types/api";
 import { overallPercentages, reportText, sampleGroups, verdictLabels } from "@/services/report";
 
 const issueLabels = { product_defect: "Reported defect", delivery: "Delivery", subjective_preference: "Personal preference", missing_feature: "Missing functionality", usability: "Usability", other: "Other concern" };
@@ -21,7 +21,11 @@ function FindingList({ findings, reviews }: { findings: Finding[] | null; review
     <Check size={16} className="finding-check" aria-hidden /><div><p>{finding.text}</p><ReviewLinks ids={finding.review_ids} reviews={reviews} />
       <details className="source-excerpts"><summary>Source excerpts</summary>{finding.evidence.map((quote, i) => <blockquote key={i}>“{quote.quote}”<ReviewLinks ids={[quote.review_id]} reviews={reviews} /></blockquote>)}</details>
     </div>
-  </li>)}</ul> : <p className="muted empty-finding">{findings === null ? "Unavailable in this saved analysis." : "No supported findings in the accessible reviews."}</p>;
+  </li>)}</ul> : <p className="muted empty-finding">{findings === null ? "Unavailable in this saved analysis." : "No directly cited written-review findings in this section."}</p>;
+}
+
+function AmazonFindings({ findings }: { findings: AmazonFinding[] }) {
+  return findings.length > 0 && <ul className="finding-list amazon-findings">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><p>{f.text}</p><details className="source-excerpts"><summary>Amazon AI {f.source === "topic" ? `topic: ${f.topic}` : "Customers say summary"}</summary><blockquote>“{f.quote}”</blockquote></details></div></li>)}</ul>;
 }
 
 function Laurel({ mirror = false }: { mirror?: boolean }) {
@@ -33,7 +37,7 @@ export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnal
   const percentages = overallPercentages(product.rating_distribution);
   const groups = sampleGroups(result.reviews);
   const sample = result.sample_statistics;
-  const refined = Boolean(result.positive_findings?.length || result.negative_findings?.length || result.recurring_issues?.length || result.reliability_findings?.length);
+  const refined = Boolean(result.positive_findings?.length || result.negative_findings?.length || result.recurring_issues?.length || result.reliability_findings?.length || result.amazon_findings.length);
 
   function exportReport() {
     const url = URL.createObjectURL(new Blob([reportText(result)], { type: "text/plain;charset=utf-8" }));
@@ -57,6 +61,7 @@ export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnal
           {product.price_text && <p className="product-price">{product.price_text}<span className="muted">Observed on Amazon · may change</span></p>}
           {product.specifications.length > 0 && <dl className="product-specs">{product.specifications.map((spec, index) => <div key={index}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>)}</dl>}
           {result.cached && <p className="cache-label">Cached analysis · no new AI call</p>}
+    {(product.customers_say || product.feedback_topics.length > 0) && <section className="amazon-summary" aria-label="Amazon customer summary"><h3>Customers say <span>Amazon AI-generated summary</span></h3>{product.customers_say && <p>{product.customers_say}</p>}<div className="feedback-topics">{product.feedback_topics.map((topic, i) => <div key={i} className={`feedback-topic topic-${topic.sentiment ?? "unknown"}`}><strong>{topic.name}</strong><span>{topic.sentiment ?? "Sentiment unavailable"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</span>{(topic.positive_count != null || topic.negative_count != null) && <span>{topic.positive_count != null ? `${topic.positive_count} positive` : ""}{topic.positive_count != null && topic.negative_count != null ? " · " : ""}{topic.negative_count != null ? `${topic.negative_count} negative` : ""}</span>}{topic.text && <p>{topic.text}</p>}</div>)}</div><p className="chart-note">Amazon’s summary and topics are secondary evidence. Mention counts are not failure rates.</p></section>}
         </div>
       </section>
       <section className={`verdict-card verdict-${result.verdict}`} aria-label="Final verdict"><div className="verdict-badge"><Check size={15} aria-hidden />Final Verdict</div><div className="verdict-title"><Laurel /><h2>{verdictLabels[result.verdict]}</h2><Laurel mirror /></div><p>{result.summary}</p><span className="verdict-accent" /></section>
@@ -71,7 +76,7 @@ export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnal
         const percentage = result.reviews.length ? group.count / result.reviews.length * 100 : 0;
         const start = result.reviews.length ? groups.slice(0, groups.indexOf(group)).reduce((sum, previous) => sum + previous.count, 0) / result.reviews.length * 100 : 0;
         return <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${percentage} ${100 - percentage}`} strokeDashoffset={-start} />;
-      })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Rating-based, deliberately balanced sample. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>
+      })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Accessible product-page reviews. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>
       <section className="card percentage-card" aria-label="Overall Amazon rating percentages"><h3>Key Percentages <span>(Amazon overall ratings)</span></h3><div className="percentage-grid">{[
         { name: "Positive", tone: "positive", value: percentages.positive, Icon: ThumbsUp },
         { name: "Neutral", tone: "neutral", value: percentages.neutral, Icon: Minus },
@@ -79,10 +84,11 @@ export function AnalysisResults({ result, idPrefix = "" }: { result: ProductAnal
       ].map(({ name, tone, value, Icon }) => <div className="percentage-tile" key={name}><span className={`percentage-icon ${tone}`}><Icon size={17} aria-hidden /></span><strong>{value == null ? "N/A" : `${value}%`}</strong><span>{name}</span></div>)}</div><p className="chart-note">4–5★ / 3★ / 1–2★ · unavailable buckets stay N/A.</p></section>
     </div>
 
+
     <div className="three-column-grid insights-row">
-      <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3><FindingList findings={result.positive_findings} reviews={result.reviews} /></section>
-      <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3><FindingList findings={result.negative_findings} reviews={result.reviews} /></section>
-      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3><FindingList findings={result.reliability_findings} reviews={result.reviews} />
+      <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3><FindingList findings={result.positive_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "positive")} /></section>
+      <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3><FindingList findings={result.negative_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "negative")} /></section>
+      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3><FindingList findings={result.reliability_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "mixed")} />
         {result.recurring_issues && result.recurring_issues.length > 0 && <div className="recurring-issues">{result.recurring_issues.map((issue, index) => <div key={index}><p className="issue-label">{issueLabels[issue.category]} · {issue.mention_count} cited reviews</p><p>{issue.text}</p><ReviewLinks ids={issue.review_ids} reviews={result.reviews} /></div>)}</div>}
         {result.key_takeaway && <div className="key-takeaway"><h4>Key Takeaway</h4><p>{result.key_takeaway}</p></div>}
       </section>

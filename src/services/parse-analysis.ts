@@ -148,6 +148,29 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
   const sample = statistics(data.sample_statistics);
   if (sample && (sample.negative_count !== sample.by_star["1"] + sample.by_star["2"] || sample.positive_count !== sample.by_star["4"] + sample.by_star["5"] || sample.neutral_count !== sample.by_star["3"] || sample.negative_count + sample.positive_count + sample.neutral_count + sample.unrated_count !== reviews.length)) invalid();
   const asin = text(product.asin);
+  const summary = nullableText(product.customers_say);
+  const topics = product.feedback_topics == null ? [] : array(product.feedback_topics).map(value => {
+    const topic = object(value);
+    const sentiment = nullableText(topic.sentiment);
+    if (sentiment !== null && !["positive", "negative", "mixed"].includes(sentiment)) invalid();
+    return { name: text(topic.name), sentiment: sentiment as "positive" | "negative" | "mixed" | null,
+      mention_count: topic.mention_count == null ? null : count(topic.mention_count),
+      positive_count: topic.positive_count == null ? null : count(topic.positive_count),
+      negative_count: topic.negative_count == null ? null : count(topic.negative_count), text: nullableText(topic.text) };
+  });
+  const amazonFindings = data.amazon_findings == null ? [] : array(data.amazon_findings).map(value => {
+    const finding = object(value);
+    const sourceType = text(finding.source);
+    const topicName = nullableText(finding.topic);
+    const sentiment = text(finding.sentiment);
+    if (!["customers_say", "topic"].includes(sourceType) || !["positive", "negative", "mixed"].includes(sentiment)) invalid();
+    const topic = topics.find(t => t.name === topicName);
+    const sourceText = sourceType === "customers_say" && topicName === null ? summary : sourceType === "topic" ? (topic?.text || topic?.name) : null;
+    const quote = text(finding.quote);
+    const normalize = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase().replace(/ß/g, "ss").replace(/ς/g, "σ");
+    if (!sourceText || !quote.trim() || !normalize(sourceText).includes(normalize(quote)) || (sourceType === "topic" && (!topic?.text && !topic?.sentiment)) || (sourceType === "topic" && topic?.sentiment && topic.sentiment !== sentiment)) invalid();
+    return { text: text(finding.text), source: sourceType as "customers_say" | "topic", topic: topicName, quote, sentiment: sentiment as "positive" | "negative" | "mixed" };
+  });
   if (!/^[A-Z0-9]{10}$/.test(asin)) invalid();
   const result: ProductAnalysis = {
     status: data.status as ProductAnalysis["status"],
@@ -161,6 +184,7 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
         const spec = object(value);
         return { label: text(spec.label), value: text(spec.value) };
       }),
+      customers_say: summary, feedback_topics: topics,
     },
     verdict, summary: text(data.summary), reviews,
     reasons: array(data.reasons).map(value => {
@@ -172,6 +196,7 @@ export function parseAnalysis(value: unknown): ProductAnalysis {
     recurring_issues: issues, sample_statistics: sample,
     reliability_findings: data.reliability_findings == null ? null : array(data.reliability_findings).map(value => finding(value, reviews)),
     key_takeaway: nullableText(data.key_takeaway),
+    amazon_findings: amazonFindings,
     coverage: { reviews_analyzed: analyzed, limitations: array(coverage.limitations).map(text) },
     cached: boolean(data.cached),
   };

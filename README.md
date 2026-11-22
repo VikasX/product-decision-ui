@@ -33,7 +33,7 @@ Overall percentages come exclusively from supplied Amazon histogram buckets:
 positive = 4+5 stars, neutral = 3 stars, negative = 1+2 stars. Missing components stay
 N/A. The Review Sentiment ring is the collected rating-based sample, not overall
 customer satisfaction; it shows actual category counts. AI-analyzed and collected
-counts may differ under input limits. Up to 7 per category is a collection target,
+counts may differ under input limits. The current collection uses up to 8 accessible product-page reviews,
 never a hardcoded count. Optional price, safe Amazon image and specifications appear
 only when returned. Discounts and warranties are not invented.
 
@@ -112,3 +112,13 @@ Live Amazon 7+7+7 availability and new model output were not tested in this rele
 - `src/hooks` — connection status lifecycle
 - `src/services` — shared HTTP client
 - `src/types` — shared TypeScript types
+
+## Product-page summary evidence
+
+Optional Customers say and topic sentiments/counts are shown inside the existing
+product card and labelled Amazon AI-generated secondary evidence. The existing
+insight cards also show separately cited Amazon findings; no fake review IDs are
+used for these sources. Runtime validation checks exact quotes against the returned
+summary/topic and keeps missing sentiment/counts null. Review links retain their
+own source validation. Export includes the Amazon sources. Sample counts describe
+only accessible product-page reviews; topic mentions are not failure rates.

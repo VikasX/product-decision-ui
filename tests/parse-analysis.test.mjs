@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const source = await readFile(new URL("../src/services/parse-analysis.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
@@ -31,6 +33,50 @@ function response() {
     coverage: { reviews_analyzed: 2, limitations: ["Fixture sample"] }, cached: true,
   };
 }
+
+test("Amazon summary findings remain distinct from written-review citations", () => {
+  const data = response();
+  data.product.customers_say = "Customers report weak adhesive and like the bright colours.";
+  data.product.feedback_topics = [{ name: "Adhesive", sentiment: "negative", mention_count: 12, text: "Customers report weak adhesive." }];
+  data.amazon_findings = [{ text: "Adhesion is a concern in Amazon's summary.", sentiment: "negative", source: "customers_say", topic: null, quote: "weak adhesive" }];
+  const parsed = parseAnalysis(data);
+  assert.equal(parsed.amazon_findings[0].source, "customers_say");
+  assert.equal(parsed.product.feedback_topics[0].positive_count, null);
+  assert.match(reportText(parsed), /AMAZON AI-GENERATED CUSTOMER SUMMARY/);
+  assert.match(reportText(parsed), /Topic mentions are not failure rates/);
+  data.amazon_findings[0].quote = "It exploded";
+  assert.throws(() => parseAnalysis(data), /invalid analysis/);
+});
+
+test("missing Amazon summaries and partial topics remain unavailable", () => {
+  const data = response();
+  data.product.feedback_topics = [{ name: "Quality" }];
+  const parsed = parseAnalysis(data);
+  assert.equal(parsed.product.customers_say, null);
+  assert.equal(parsed.product.feedback_topics[0].sentiment, null);
+  assert.equal(parsed.product.feedback_topics[0].mention_count, null);
+  assert.deepEqual(parsed.amazon_findings, []);
+});
+
+test("existing report cards render separately labelled Amazon sources and scoped review links", async () => {
+  const component = await readFile(new URL("../src/components/analysis-results.tsx", import.meta.url), "utf8");
+  let code = ts.transpileModule(component, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  for (const name of ["react", "react/jsx-runtime", "lucide-react"]) code = code.replaceAll(JSON.stringify(name), JSON.stringify(import.meta.resolve(name)));
+  code = code.replace(JSON.stringify("@/services/report"), JSON.stringify(`data:text/javascript;base64,${Buffer.from(reportCompiled.outputText).toString("base64")}`));
+  const { AnalysisResults } = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+  const data = response();
+  data.product.customers_say = "Customers report weak adhesive.";
+  data.product.feedback_topics = [{ name: "Adhesive", sentiment: "negative", mention_count: 12 }];
+  data.amazon_findings = [{ text: "Amazon reports adhesion concerns.", source: "customers_say", topic: null, sentiment: "negative", quote: "weak adhesive" }];
+  const html = renderToStaticMarkup(createElement(AnalysisResults, { result: parseAnalysis(data), idPrefix: "langchain-" }));
+  assert.match(html, /Amazon AI-generated summary/);
+  assert.match(html, /12 mentions/);
+  assert.match(html, /Amazon reports adhesion concerns/);
+  assert.match(html, /Amazon AI Customers say summary/);
+  assert.match(html, /id="langchain-review-R1"/);
+  assert.match(html, /href="#langchain-review-R1"/);
+  assert.doesNotMatch(html, /class="card amazon-summary"|7\+7\+7|filtered review requests/);
+});
 
 test("preserves supplied rating metadata, findings and verified source references", () => {
   const parsed = parseAnalysis(response());

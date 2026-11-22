@@ -3,6 +3,8 @@ export type ConnectionStatus = "checking" | "connected" | "unavailable";
 export type Verdict = "worth_considering" | "proceed_with_caution" | "not_recommended" | "insufficient_evidence";
 export type Evidence = { review_id: string; quote: string };
 export type Finding = { text: string; review_ids: string[]; evidence: Evidence[] };
+export type FeedbackTopic = { name: string; sentiment: "positive" | "negative" | "mixed" | null; mention_count: number | null; positive_count: number | null; negative_count: number | null; text: string | null };
+export type AmazonFinding = { text: string; sentiment: "positive" | "negative" | "mixed"; source: "customers_say" | "topic"; topic: string | null; quote: string };
 export type IssueCategory = "product_defect" | "delivery" | "subjective_preference" | "missing_feature" | "usability" | "other";
 export type RecurringIssue = Finding & { category: IssueCategory; mention_count: number };
 export type Review = {
@@ -36,6 +38,8 @@ export type ProductAnalysis = {
     image_url: string | null;
     price_text: string | null;
     specifications: { label: string; value: string }[];
+    customers_say: string | null;
+    feedback_topics: FeedbackTopic[];
   };
   verdict: Verdict;
   summary: string;
@@ -46,6 +50,7 @@ export type ProductAnalysis = {
   sample_statistics: SampleStatistics | null;
   reliability_findings: Finding[] | null;
   key_takeaway: string | null;
+  amazon_findings: AmazonFinding[];
   reviews: Review[];
   coverage: { reviews_analyzed: number; limitations: string[] };
   cached: boolean;
