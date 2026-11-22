@@ -98,15 +98,10 @@ export function DemoCatalog() {
     {selected && <div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
       <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button>
     </div>}
-    {evidence && <details className="demo-evidence"><summary>View Source Evidence</summary>
-      <p>Supplied screenshots · Amazon AI-generated summary/topics · partial excerpts have no verified review IDs, dates or star ratings.</p>
-      {evidence.product.customers_say && <><h3>Amazon Customers Say</h3><p>{evidence.product.customers_say}</p></>}
-      {evidence.product.feedback_topics.map((topic, i) => <div className="demo-source-topic" key={i}><strong>{topic.name} · {topic.sentiment ?? "Unknown"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</strong>{topic.text && <p>{topic.text}</p>}</div>)}
-      <ul>{evidence.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul>{evidence.topic_excerpts.map((e, i) => <blockquote key={i}><strong>{e.topic} · {e.partial ? "partial excerpt" : "visible excerpt"}</strong><p>“{e.text}”</p><small>{e.source_file.split("/").at(-1)}</small></blockquote>)}</details>}
     {error && <p role="alert" className="analysis-error">{error}</p>}
     {(analyzing || result) && <section aria-label="Full Analysis" aria-busy={analyzing} className="demo-full-analysis"><h2>Full Analysis</h2>
       <p role="status" className="demo-status">{analyzing ? "Analyzing the saved evidence with GPT-5 nano…" : `${workflow === "httpx" ? "HTTPX" : "LangChain"} / GPT-5 nano · ${result?.cached ? "Cached analysis" : "Analysis ready"}`}</p>
-      {result && <AnalysisResults result={result} idPrefix="demo-" hideSourceEvidence />}
+      {result && <AnalysisResults result={result} idPrefix="demo-" hideSourceEvidence demoMode />}
     </section>}
   </section>;
 }

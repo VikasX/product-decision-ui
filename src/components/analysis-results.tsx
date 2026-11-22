@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Download, ExternalLink, FileText, Minus, Package, ShieldCheck, Star, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
 import { createContext, useContext } from "react";
-import type { AmazonFinding, Finding, ProductAnalysis, Review } from "@/types/api";
-import { overallPercentages, reportText, sampleGroups, verdictLabels } from "@/services/report";
+import type { AmazonFinding, FeedbackTopic, Finding, ProductAnalysis, Review } from "@/types/api";
+import { overallPercentages, ratingOverview, reportText, sampleGroups, shortText, verdictLabels } from "@/services/report";
 
 // Translate fixed API issue categories into readable labels; these do not change the model verdict.
 const issueLabels = { product_defect: "Reported defect", delivery: "Delivery", subjective_preference: "Personal preference", missing_feature: "Missing functionality", usability: "Usability", other: "Other concern" };
@@ -38,9 +38,26 @@ function FindingList({ findings, reviews }: { findings: Finding[] | null; review
 }
 
 // Label secondary Amazon AI evidence separately from directly quoted written reviews.
-function AmazonFindings({ findings }: { findings: AmazonFinding[] }) {
+function AmazonFindings({ findings, compact = false }: { findings: AmazonFinding[]; compact?: boolean }) {
+  if (compact) return findings.length > 0 && <><p className="chart-note">Amazon AI summary evidence</p><ul className="finding-list">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><p>{shortText(f.text)}</p></li>)}</ul></>;
   // Amazon summary/topic findings show their distinct source labels instead of pretending to cite a direct review.
   return findings.length > 0 && <ul className="finding-list amazon-findings">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><p>{f.text}</p><details className="source-excerpts"><summary>Amazon AI {f.source === "topic" ? `topic: ${f.topic}` : "Customers say summary"}</summary><blockquote>“{f.quote}”</blockquote></details></div></li>)}</ul>;
+}
+
+function TopicFeedback({ topics }: { topics: FeedbackTopic[] }) {
+  return topics.length > 0 ? <><p className="chart-note">Amazon AI customer summary</p><ul className="finding-list topic-feedback">{topics.map((topic, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><strong>{topic.name}</strong><p>{shortText(topic.text || `${topic.sentiment ?? "Unknown"} feedback reported by Amazon.`)}</p></div></li>)}</ul></> : <p className="chart-note">No feedback supplied for this section.</p>;
+}
+
+function RatingSentiment({ percentages }: { percentages: ReturnType<typeof overallPercentages> }) {
+  const groups = [
+    { label: "Positive", range: "4★–5★", value: percentages.positive, tone: "positive" },
+    { label: "Neutral", range: "3★", value: percentages.neutral, tone: "neutral" },
+    { label: "Negative", range: "1★–2★", value: percentages.negative, tone: "negative" },
+  ];
+  return <section className="card sentiment-card" aria-label="Overall rating sentiment"><h3>Review Sentiment <span>(Amazon ratings)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map((group, i) => {
+    const start = groups.slice(0, i).reduce((sum, previous) => sum + (previous.value ?? 0), 0);
+    return group.value == null ? null : <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${group.value} ${100 - group.value}`} strokeDashoffset={-start} />;
+  })}</svg><div className="donut-center"><strong>{percentages.positive == null ? "N/A" : `${percentages.positive}%`}</strong><span>Positive</span></div></div><ul className="sentiment-legend">{groups.map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.value == null ? "N/A" : `${group.value}%`}</strong></li>)}</ul></div><p className="chart-note">Based on Amazon’s overall star-rating distribution.</p></section>;
 }
 
 // Render a decorative SVG on each side of the verdict title; mirror flips the second ornament through CSS.
@@ -49,11 +66,16 @@ function Laurel({ mirror = false }: { mirror?: boolean }) {
 }
 
 // Validated report in; render observed ratings, sampled evidence and verdict without another API call.
-export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = false }: { result: ProductAnalysis; idPrefix?: string; hideSourceEvidence?: boolean }) {
+export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = false, demoMode = false }: { result: ProductAnalysis; idPrefix?: string; hideSourceEvidence?: boolean; demoMode?: boolean }) {
   // Use the product evidence from the validated API report; this component does not fetch more data.
   const product = result.product;
   // Overall percentages use Amazon histogram buckets; the ring uses collected review counts.
   const percentages = overallPercentages(product.rating_distribution);
+  const overview = ratingOverview(product);
+  const positive = result.amazon_findings.filter(f => f.sentiment === "positive");
+  const negative = result.amazon_findings.filter(f => f.sentiment === "negative");
+  const mixed = result.amazon_findings.filter(f => f.sentiment === "mixed");
+  const concernTopics = [...product.feedback_topics.filter(t => t.sentiment === "negative"), ...product.feedback_topics.filter(t => t.sentiment === "mixed")].slice(0, 3);
   // Group collected reviews by their observed stars for the sample ring and legend.
   const groups = sampleGroups(result.reviews);
   // Read the backend-computed counts/date bounds, which may be missing from older saved reports.
@@ -74,7 +96,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
   }
 
   // Provide the report prefix to every nested review link while rendering the result layout.
-  return <ReviewScope.Provider value={idPrefix}><div className="analysis-results">
+  return <ReviewScope.Provider value={idPrefix}><div className={`analysis-results${demoMode ? " demo-report" : ""}`}>
     {/* The first row combines observed product details with the separate validated model verdict. */}
     <div className="product-verdict-row">
       <section className="card product-card" aria-label="Product information">
@@ -91,7 +113,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
           {/* Show the numeric average and count only when known; filled star icons are a rounded visual aid. */}
           <div className="product-rating"><strong>{product.overall_rating?.toFixed(1) ?? "Rating unavailable"}</strong>{product.overall_rating != null && <span className="stars" aria-label={`${product.overall_rating} out of 5 stars`}>{[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} aria-hidden fill={star <= Math.round(product.overall_rating!) ? "currentColor" : "none"} />)}</span>}{product.rating_count != null && <span className="muted">({product.rating_count.toLocaleString("en-IN")} ratings)</span>}</div>
           {/* Collected and AI-analyzed counts differ when input limits or failed analysis prevent using the whole sample. */}
-          <div className="sample-badges"><span className="sample-badge"><Check size={13} aria-hidden />{result.coverage.reviews_analyzed} reviews analyzed</span><span className="muted">{result.reviews.length} collected</span></div>
+          {!demoMode && <div className="sample-badges"><span className="sample-badge"><Check size={13} aria-hidden />{result.coverage.reviews_analyzed} reviews analyzed</span><span className="muted">{result.reviews.length} collected</span></div>}
           {/* Only display an observed price and make clear it may change after collection. */}
           {product.price_text && <p className="product-price">{product.price_text}<span className="muted">Observed on Amazon · may change</span></p>}
           {/* Map the observed label/value list into a definition list; omit the section when no specs arrived. */}
@@ -103,7 +125,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
         </div>
       </section>
       {/* Use the fixed verdict value for styling and its display label for the heading; show the returned explanation. */}
-      <section className={`verdict-card verdict-${result.verdict}`} aria-label="Final verdict"><div className="verdict-badge"><Check size={15} aria-hidden />Final Verdict</div><div className="verdict-title"><Laurel /><h2>{verdictLabels[result.verdict]}</h2><Laurel mirror /></div><p>{result.summary}</p><span className="verdict-accent" /></section>
+      <section className={`verdict-card verdict-${result.verdict}`} aria-label={demoMode ? "Rating overview" : "Final verdict"}><div className="verdict-badge"><Check size={15} aria-hidden />{demoMode ? "Amazon overall ratings" : "Final Verdict"}</div><div className="verdict-title"><Laurel /><h2>{demoMode ? overview.title : verdictLabels[result.verdict]}</h2><Laurel mirror /></div><p>{demoMode ? overview.summary : result.summary}</p><span className="verdict-accent" /></section>
     </div>
 
     {/* These three panels deliberately separate overall Amazon ratings from the small written-review sample. */}
@@ -116,14 +138,14 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
         return <div className="rating-bar-row" key={stars}><span>{stars} ★</span><div className="bar-track" aria-hidden><div className={`bar-fill star-${stars}`} style={{ width: `${percentage ?? 0}%` }} /></div><span className="bar-value">{percentage == null ? "N/A" : `${percentage}%`}</span></div>;
       })}</div><p className="chart-note">Amazon overall ratings. N/A means unavailable.</p></section>
       {/* Draw a ring from collected star-category counts; this is not a population satisfaction estimate. */}
-      <section className="card sentiment-card" aria-label="Written review sample"><h3>Review Sentiment <span>({result.reviews.length} collected)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map(group => {
+      {demoMode ? <RatingSentiment percentages={percentages} /> : <section className="card sentiment-card" aria-label="Written review sample"><h3>Review Sentiment <span>({result.reviews.length} collected)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map(group => {
         // Convert this group count to a share of the collected sample, guarding against division by zero.
         const percentage = result.reviews.length ? group.count / result.reviews.length * 100 : 0;
         // Sum preceding group counts to determine where this segment begins around the ring.
         const start = result.reviews.length ? groups.slice(0, groups.indexOf(group)).reduce((sum, previous) => sum + previous.count, 0) / result.reviews.length * 100 : 0;
         // pathLength=100 lets percentages define arc length; a negative offset places this arc after earlier ones.
         return <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${percentage} ${100 - percentage}`} strokeDashoffset={-start} />;
-      })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Accessible product-page reviews. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>
+      })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Accessible product-page reviews. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>}
       {/* Use the shared overall-rating calculation for these tiles, never the ring sample proportions. */}
       <section className="card percentage-card" aria-label="Overall Amazon rating percentages"><h3>Key Percentages <span>(Amazon overall ratings)</span></h3><div className="percentage-grid">{[
         { name: "Positive", tone: "positive", value: percentages.positive, Icon: ThumbsUp },
@@ -136,25 +158,26 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
     {/* Place findings into strengths, concerns and reliability without mixing their source types. */}
     <div className="three-column-grid insights-row">
       {/* Show supported direct-review strengths and positive Amazon AI findings together with distinct source labels. */}
-      <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3><FindingList findings={result.positive_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "positive")} /></section>
+      <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3>{(!demoMode || Boolean(result.positive_findings?.length)) && <FindingList findings={result.positive_findings} reviews={result.reviews} />}{demoMode && !positive.length ? <TopicFeedback topics={product.feedback_topics.filter(t => t.sentiment === "positive").slice(0, 2)} /> : <AmazonFindings findings={positive} compact={demoMode} />}</section>
       {/* Show supported direct-review concerns and negative Amazon AI findings, not guessed complaint rates. */}
-      <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3><FindingList findings={result.negative_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "negative")} /></section>
+      <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3>{(!demoMode || Boolean(result.negative_findings?.length)) && <FindingList findings={result.negative_findings} reviews={result.reviews} />}{demoMode && !negative.length ? <TopicFeedback topics={concernTopics} /> : <AmazonFindings findings={negative} compact={demoMode} />}</section>
       {/* Mixed Amazon AI findings appear alongside direct reliability evidence; neither claims independent testing. */}
-      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3><FindingList findings={result.reliability_findings} reviews={result.reviews} /><AmazonFindings findings={result.amazon_findings.filter(f => f.sentiment === "mixed")} />
+      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3>{(!demoMode || Boolean(result.reliability_findings?.length)) && <FindingList findings={result.reliability_findings} reviews={result.reviews} />}{demoMode && !mixed.length ? <TopicFeedback topics={product.feedback_topics.filter(t => /reliability/i.test(t.name)).slice(0, 1)} /> : <AmazonFindings findings={mixed} compact={demoMode} />}
         {/* Render recurring concerns only when the validated API supplied them, including actual distinct citation counts. */}
-        {result.recurring_issues && result.recurring_issues.length > 0 && <div className="recurring-issues">{result.recurring_issues.map((issue, index) => <div key={index}><p className="issue-label">{issueLabels[issue.category]} · {issue.mention_count} cited reviews</p><p>{issue.text}</p><ReviewLinks ids={issue.review_ids} reviews={result.reviews} /></div>)}</div>}
+        {!demoMode && result.recurring_issues && result.recurring_issues.length > 0 && <div className="recurring-issues">{result.recurring_issues.map((issue, index) => <div key={index}><p className="issue-label">{issueLabels[issue.category]} · {issue.mention_count} cited reviews</p><p>{issue.text}</p><ReviewLinks ids={issue.review_ids} reviews={result.reviews} /></div>)}</div>}
         {/* Omit this block for older or incomplete reports that have no practical takeaway. */}
-        {result.key_takeaway && <div className="key-takeaway"><h4>Key Takeaway</h4><p>{result.key_takeaway}</p></div>}
+        {!demoMode && result.key_takeaway && <div className="key-takeaway"><h4>Key Takeaway</h4><p>{result.key_takeaway}</p></div>}
       </section>
     </div>
 
     {/* Support older reports by rendering their reasons only when detailed finding sections are absent. */}
-    {!refined && result.reasons.length > 0 && <section className="card legacy-reasons"><h3>Reasons Behind the Verdict</h3>{result.reasons.map((reason, i) => <div key={i}><p>{reason.text}</p><ReviewLinks ids={reason.review_ids} reviews={result.reviews} /></div>)}</section>}
+    {!demoMode && !refined && result.reasons.length > 0 && <section className="card legacy-reasons"><h3>Reasons Behind the Verdict</h3>{result.reasons.map((reason, i) => <div key={i}><p>{reason.text}</p><ReviewLinks ids={reason.review_ids} reviews={result.reviews} /></div>)}</section>}
 
     {/* Show evidence limitations and known sample dates; actions open source reviews or download this existing report. */}
-    <div className="footer-actions"><section className="card evidence-limitations" aria-label="Evidence limitations"><h3><FileText size={20} aria-hidden />Evidence Limitations</h3><div>{result.coverage.limitations.length ? <ul>{result.coverage.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul> : <p>No additional limitations were reported.</p>}{sample?.oldest_review_date && sample.newest_review_date && <p className="sample-date">Dated sample · {sample.oldest_review_date} to {sample.newest_review_date}</p>}</div></section><div className="report-actions"><a className="primary-button" href={`#${idPrefix}supporting-reviews`} onClick={() => { const el = document.getElementById(`${idPrefix}supporting-reviews`); if (el instanceof HTMLDetailsElement) el.open = true; }}><FileText size={17} aria-hidden />Supporting Reviews ({result.reviews.length})<span aria-hidden>→</span></a><button type="button" className="secondary-button" onClick={exportReport}><Download size={17} aria-hidden />Export Report</button></div></div>
+    {!demoMode && <><div className="footer-actions"><section className="card evidence-limitations" aria-label="Evidence limitations"><h3><FileText size={20} aria-hidden />Evidence Limitations</h3><div>{result.coverage.limitations.length ? <ul>{result.coverage.limitations.map((line, i) => <li key={i}>{line}</li>)}</ul> : <p>No additional limitations were reported.</p>}{sample?.oldest_review_date && sample.newest_review_date && <p className="sample-date">Dated sample · {sample.oldest_review_date} to {sample.newest_review_date}</p>}</div></section><div className="report-actions"><a className="primary-button" href={`#${idPrefix}supporting-reviews`} onClick={() => { const el = document.getElementById(`${idPrefix}supporting-reviews`); if (el instanceof HTMLDetailsElement) el.open = true; }}><FileText size={17} aria-hidden />Supporting Reviews ({result.reviews.length})<span aria-hidden>→</span></a><button type="button" className="secondary-button" onClick={exportReport}><Download size={17} aria-hidden />Export Report</button></div></div>
 
     {/* Each review gets a prefixed stable anchor, its observed metadata and original text; empty collection stays explicit. */}
     <details id={`${idPrefix}supporting-reviews`} className="card supporting-reviews"><summary><span><FileText size={19} aria-hidden />Supporting Reviews <span className="muted">({result.reviews.length})</span></span><ChevronDown size={18} aria-hidden /></summary><p className="chart-note">Accessible source text; other variants may be included. Review ratings do not guarantee the body is positive or negative.</p>{result.reviews.length ? <div className="review-list">{result.reviews.map((review, index) => <details className="review-detail" key={review.id} id={`${idPrefix}review-${encodeURIComponent(review.id)}`}><summary><span>Review {index + 1} · {review.stars != null ? `${review.stars}/5 stars` : "Rating unavailable"}{review.title && <b>{review.title}</b>}</span><ChevronDown size={16} aria-hidden /></summary><div className="review-body">{review.date && <p className="muted">{review.date}</p>}{review.variant && <p className="muted"><Package size={13} aria-hidden />Variant · {review.variant}</p>}<p className="review-text">{review.text}</p><a href={review.source_url} target="_blank" rel="noopener noreferrer">View source on Amazon <ExternalLink size={13} aria-hidden /></a></div></details>)}</div> : <p className="empty-finding muted">No written reviews were accessible.</p>}</details>
+    </>}
   </div></ReviewScope.Provider>;
 }

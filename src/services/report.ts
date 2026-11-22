@@ -23,6 +23,25 @@ export function overallPercentages(distribution: ProductAnalysis["product"]["rat
   return { positive: sum([4, 5]), neutral: sum([3]), negative: sum([1, 2]) };
 }
 
+// This is a rating-based display summary, not a replacement for the stored AI verdict.
+export function ratingOverview(product: ProductAnalysis["product"]) {
+  const positive = overallPercentages(product.rating_distribution).positive;
+  const concerns = product.feedback_topics.filter(t => t.sentiment === "negative").slice(0, 2);
+  return {
+    title: positive == null ? "Positive ratings unavailable" : `${positive}% Positive Ratings`,
+    summary: concerns.length
+      ? `Reported concerns: ${concerns.map(t => t.name).join(" and ")}.`
+      : "Based on Amazon’s overall 4–5★ rating share.",
+  };
+}
+
+// Keep display text short without generating new claims or changing the saved source.
+export function shortText(text: string, limit = 160): string {
+  if (text.length <= limit) return text;
+  const end = text.lastIndexOf(" ", limit - 1);
+  return text.slice(0, end > 0 ? end : limit - 1).trimEnd() + "…";
+}
+
 // Counts describe only accessible collected reviews, not overall buyer satisfaction.
 export function sampleGroups(reviews: Review[]) {
   // Create the displayed output from existing data only; this function does not contact any service.

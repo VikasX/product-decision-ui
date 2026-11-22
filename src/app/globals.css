@@ -318,3 +318,18 @@ details[open] > summary > svg { transform: rotate(180deg); }
   .demo-product { grid-template-columns: 88px minmax(0, 1fr); }
   .demo-rating small { font-size: 9px; }
 }
+/* Keep the screenshot-based demo overview compact; original report callers retain their layout. */
+.demo-report .product-verdict-row { align-items: start; }
+.demo-full-analysis .demo-report .product-card { align-items: flex-start; min-height: 0; }
+.demo-report .verdict-card { min-height: 0; align-self: start; padding: 22px 18px; }
+.demo-report .verdict-title { margin: 12px 0; }
+.demo-report .verdict-title h2 { font-size: 28px; line-height: 1.2; max-width: 260px; }
+.demo-report .verdict-card > p { font-size: 12px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.demo-report .verdict-accent { margin-top: 14px; }
+.demo-report .insight-card .chart-note { margin-bottom: 10px; font-size: 10px; }
+.demo-report .topic-feedback strong { font-size: 12px; }
+.demo-report .topic-feedback p { margin-top: 4px; color: var(--copy); }
+.demo-report .finding-list { gap: 12px; }
+.demo-report .product-price { margin-top: 8px; }
+.demo-report .sentiment-content { min-height: 125px; }
+.demo-report .donut-center strong { font-size: 22px; }

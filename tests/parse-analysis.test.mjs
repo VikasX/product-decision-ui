@@ -91,6 +91,29 @@ test("existing report cards render separately labelled Amazon sources and scoped
   assert.doesNotMatch(compact, /aria-label="Amazon customer summary"/);
   assert.equal((compact.match(/aria-label="Final verdict"/g) ?? []).length, 1);
   assert.match(compact, /Amazon reports adhesion concerns/);
+  const saved = response();
+  saved.status = "insufficient_evidence";
+  saved.verdict = "insufficient_evidence";
+  saved.summary = "LONG_MODEL_PARAGRAPH_SHOULD_NOT_BE_DISPLAYED ".repeat(20);
+  saved.reviews = []; saved.reasons = []; saved.sample_statistics = null;
+  saved.coverage.reviews_analyzed = 0;
+  saved.positive_findings = []; saved.negative_findings = []; saved.recurring_issues = [];
+  saved.reliability_findings = []; saved.amazon_findings = [];
+  saved.product.rating_distribution = [{ stars: 5, percentage: 44 }, { stars: 4, percentage: 12 }, { stars: 3, percentage: 12 }, { stars: 2, percentage: 6 }, { stars: 1, percentage: 26 }];
+  saved.product.feedback_topics = [
+    { name: "Appearance", sentiment: "positive", text: "Customers appreciate the appearance." },
+    { name: "Adhesive", sentiment: "negative", text: "Customers report poor adhesion." },
+    { name: "Reliability", sentiment: "mixed", text: "Customers report mixed reliability." },
+  ];
+  const demo = renderToStaticMarkup(createElement(AnalysisResults, { result: parseAnalysis(saved), hideSourceEvidence: true, demoMode: true }));
+  assert.match(demo, /56% Positive Ratings/);
+  assert.match(demo, /aria-label="Overall rating sentiment"/);
+  assert.match(demo, /stroke-dasharray="56 44"/);
+  assert.match(demo, /stroke-dasharray="12 88"/);
+  assert.match(demo, /stroke-dasharray="32 68"/);
+  assert.match(demo, /Customers report poor adhesion/);
+  assert.match(demo, /Amazon AI customer summary/);
+  assert.doesNotMatch(demo, /More Evidence Needed|LONG_MODEL_PARAGRAPH|Evidence Limitations|Supporting Reviews|Export Report|0 collected|No directly cited/);
 });
 
 test("preserves supplied rating metadata, findings and verified source references", () => {
