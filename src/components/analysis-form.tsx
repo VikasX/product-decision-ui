@@ -1,15 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Link2, FileSearch, LoaderCircle, ExternalLink } from "lucide-react";
+import { ArrowRight, Link2, FileSearch, LoaderCircle } from "lucide-react";
 import { analyzeProduct } from "@/services/api";
+import { AnalysisResults } from "@/components/analysis-results";
 import type { ProductAnalysis } from "@/types/api";
-
-const verdictLabels = {
-  buy: "Buy",
-  skip: "Skip",
-  insufficient_evidence: "More evidence needed",
-};
 
 export function AnalysisForm() {
   const [url, setUrl] = useState("");
@@ -72,44 +67,7 @@ export function AnalysisForm() {
       <p role="status" className="mt-2 text-sm text-stone-600">
         {loading ? "Checking available product details and reviews. This may take a moment." : result ? "Analysis ready." : "Your product analysis will appear here."}
       </p>
-      {result && <div className="mt-6 space-y-6">
-        <div className="rounded-2xl border border-stone-200 bg-white p-6">
-          <a href={result.product.url} target="_blank" rel="noopener noreferrer" className="flex items-start justify-between gap-3 text-sm font-medium text-stone-600 hover:text-teal-800">
-            {result.product.title || result.product.asin}<ExternalLink size={16} aria-hidden className="mt-0.5 shrink-0" />
-          </a>
-          <h3 className={`mt-4 text-3xl font-semibold tracking-tight ${result.verdict === "skip" ? "text-red-800" : result.verdict === "buy" ? "text-teal-800" : "text-amber-800"}`}>{verdictLabels[result.verdict]}</h3>
-          <p className="mt-3 leading-relaxed text-stone-700">{result.summary}</p>
-          <p className="mt-5 text-sm text-stone-500">{result.reviews.length} reviews collected · {result.coverage.reviews_analyzed} analyzed</p>
-          {(result.usage || result.cached) && <p className="mt-2 text-xs text-stone-500">
-            {result.usage && <>Model · {result.usage.model}</>}
-            {result.cached && <>{result.usage ? " · " : ""}Cached · no new AI call</>}
-            {!result.cached && result.usage && result.usage.reserved_cost_usd > 0 && <span title="Conservative spending reservation for this request. Actual billing may be lower."> · ${result.usage.reserved_cost_usd.toFixed(4)} reserved</span>}
-          </p>}
-        </div>
-        {result.coverage.limitations.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-          <h3 className="font-semibold">Evidence limitations</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5">{result.coverage.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>
-        </div>}
-        {result.reasons.length > 0 && <div>
-          <h3 className="font-semibold">Reasons behind the verdict</h3>
-          <ul className="mt-3 space-y-3">{result.reasons.map((reason, index) => <li key={index} className="rounded-xl border border-stone-200 bg-white p-5">
-            <p className="leading-relaxed">{reason.text}</p>
-            <div className="mt-2 flex flex-wrap gap-3">{reason.review_ids.filter(id => result.reviews.some(review => review.id === id)).map(id => <a key={id} href={`#review-${encodeURIComponent(id)}`} onClick={() => {
-              const review = document.getElementById(`review-${encodeURIComponent(id)}`);
-              if (review instanceof HTMLDetailsElement) review.open = true;
-            }} className="text-sm font-medium text-teal-800 underline underline-offset-4">Review {result.reviews.findIndex(review => review.id === id) + 1}</a>)}</div>
-          </li>)}</ul>
-        </div>}
-        {result.reviews.length > 0 && <div>
-          <h3 className="mb-3 font-semibold">Supporting reviews</h3>
-          <div className="space-y-2">{result.reviews.map((review, index) => <details key={review.id} id={`review-${encodeURIComponent(review.id)}`} className="scroll-mt-6 rounded-xl border border-stone-200 bg-white p-4">
-            <summary className="cursor-pointer text-sm font-medium">Review {index + 1}{review.stars !== null ? ` · ${review.stars}/5 stars` : ""}{review.date ? ` · ${review.date}` : ""}</summary>
-            {review.variant && <p className="mt-3 text-xs text-stone-500">Variant · {review.variant}</p>}
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-stone-700">{review.text}</p>
-            {review.source_url && <a href={review.source_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-medium text-teal-800 underline underline-offset-4">View source on Amazon</a>}
-          </details>)}</div>
-        </div>}
-      </div>}
+      {result && <AnalysisResults result={result} />}
     </section>
   </>;
 }

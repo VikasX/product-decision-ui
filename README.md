@@ -17,10 +17,21 @@ In PowerShell use `Copy-Item .env.example .env.local` for the copy step. Open ht
 The browser checks `GET /api/v1/health` once on page load using `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`). Configure FastAPI CORS to allow the frontend origin for cross-origin requests. Restart the dev server after changing the environment, or rebuild for production.
 
 Submitting an Amazon.in product URL calls `POST /api/v1/analysis`. The UI shows
-loading and error states, a buy/skip/insufficient-evidence judgment, collected and
-analysed review counts, coverage limitations, and reasons linked to expandable
-source reviews. It also displays the model, cache reuse and conservative cost
-reservations when supplied by the backend. The OpenAI key belongs in the backend.
+loading and error states, a four-way recommendation, collected and analysed review
+counts, coverage limitations, and findings linked to expandable source reviews.
+Recommendations are Worth Considering, Proceed with Caution, Not Recommended and
+More Evidence Needed. Legacy buy/skip responses are accepted during deployment.
+
+The result shows overall Amazon ratings and their distribution only when supplied,
+plus collected-sample counts, positive and negative findings, and recurring issues.
+Quotes link to their source reviews. Reported defects and missing functionality
+are visually distinct from delivery concerns and preferences. Unavailable metadata
+is labelled explicitly. The existing homepage, navigation and responsive form remain.
+
+Nested API responses are validated before rendering, including numeric ranges,
+review references, evidence quotes and Amazon source URLs. The UI also displays
+the model, cache reuse and conservative cost reservations when supplied by the
+backend. The OpenAI key belongs in the backend.
 
 ## Project progress
 
@@ -50,7 +61,9 @@ See the linked project status for the temporary access expiry and remaining work
 
 ## Checks
 
-Run `npm run lint` and `npm run build`. Use `npm start` to serve the production build.
+Run `npm test`, `npm run lint` and `npm run build`. The response-validation tests
+use Node's built-in test runner and stored in-process examples, with no external
+requests or API credits. Use `npm start` to serve the production build.
 
 ## Source layout
 

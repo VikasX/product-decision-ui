@@ -1,4 +1,5 @@
 import type { ProductAnalysis } from "@/types/api";
+import { parseAnalysis } from "@/services/parse-analysis";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -20,8 +21,5 @@ export async function analyzeProduct(url: string, signal: AbortSignal): Promise<
     const detail = typeof data?.detail === "string" ? data.detail : "Please try again.";
     throw new Error(`Analysis failed (${response.status}). ${detail}`);
   }
-  if (!data?.product || !data.coverage || !Array.isArray(data.reviews) || !Array.isArray(data.reasons)) {
-    throw new Error("The server returned an incomplete analysis. Please try again.");
-  }
-  return data;
+  return parseAnalysis(data);
 }
