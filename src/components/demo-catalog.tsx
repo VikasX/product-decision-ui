@@ -143,9 +143,9 @@ export function DemoCatalog() {
       <div className="demo-products">{products.map(product => <button type="button" key={product.id} className={`demo-product card ${selected?.id === product.id ? "is-selected" : ""}`} aria-pressed={selected?.id === product.id} disabled={analyzing} onClick={() => void chooseProduct(product)}>
         <span className="demo-data-badge">{selected?.id === product.id ? <><Check size={12} aria-hidden />Selected</> : "Saved data"}</span>
         <span className="demo-product-image">{product.image_path ? <>
-          {/* Display only the product-image region of the original supplied screenshot via CSS. */}
+          {/* Display the local product photo; the card no longer depends on a full source screenshot. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={demoImageUrl(product.image_path)} alt={product.title} />
+          <img src={`${demoImageUrl(product.image_path)}?v=${product.version}`} alt={product.title} />
         </> : <Package size={52} aria-hidden />}</span>
         <strong>{product.title}</strong><span className="demo-rating"><Star size={14} fill="currentColor" aria-hidden />{product.overall_rating ?? "Rating unavailable"}{product.rating_count !== null && <small>({product.rating_count.toLocaleString("en-IN")} ratings)</small>}</span>
         {product.price_text && <b className="demo-price">{product.price_text}</b>}
@@ -161,7 +161,8 @@ export function DemoCatalog() {
     {error && <p role="alert" className="analysis-error">{error}</p>}
     {/* Show one shared dashboard only after Analyze; choosing a different product clears the previous result. */}
     {(analyzing || result) && <section aria-label="Full Analysis" aria-busy={analyzing} className="demo-full-analysis"><h2>Full Analysis</h2>
-      <p role="status" className="demo-status">{analyzing ? "Analyzing the saved evidence with GPT-5 nano…" : `${workflow === "httpx" ? "HTTPX" : "LangChain"} / GPT-5 nano · ${result?.cached ? "Cached analysis" : "Analysis ready"}`}</p>
+      {/* Show progress only while working; adapter/cache details remain in the API response, not the dashboard. */}
+      {analyzing && <p role="status" className="demo-status">Analyzing product…</p>}
       {/* Reuse the existing report with a demo anchor prefix and compact presentation; do not duplicate its cards. */}
       {result && <AnalysisResults result={result} idPrefix="demo-" hideSourceEvidence demoMode />}
     </section>}

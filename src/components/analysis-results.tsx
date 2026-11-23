@@ -40,15 +40,15 @@ function FindingList({ findings, reviews }: { findings: Finding[] | null; review
 // Label secondary Amazon AI evidence separately from directly quoted written reviews.
 function AmazonFindings({ findings, compact = false }: { findings: AmazonFinding[]; compact?: boolean }) {
   // Compact cards show a short source-backed preview; the saved finding and its quote remain unchanged.
-  if (compact) return findings.length > 0 && <><p className="chart-note">Amazon AI summary evidence</p><ul className="finding-list">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><p>{shortText(f.text)}</p></li>)}</ul></>;
+  if (compact) return findings.length > 0 && <><ul className="finding-list">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><p>{shortText(f.text)}</p></li>)}</ul></>;
   // Amazon summary/topic findings show their distinct source labels instead of pretending to cite a direct review.
   return findings.length > 0 && <ul className="finding-list amazon-findings">{findings.map((f, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><p>{f.text}</p><details className="source-excerpts"><summary>Amazon AI {f.source === "topic" ? `topic: ${f.topic}` : "Customers say summary"}</summary><blockquote>“{f.quote}”</blockquote></details></div></li>)}</ul>;
 }
 
 // Show saved Amazon topics when model findings are absent. These are secondary evidence, not direct review citations.
 function TopicFeedback({ topics }: { topics: FeedbackTopic[] }) {
-  // Prefer the supplied topic description; fall back only to its observed sentiment, with an explicit source label.
-  return topics.length > 0 ? <><p className="chart-note">Amazon AI customer summary</p><ul className="finding-list topic-feedback">{topics.map((topic, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><strong>{topic.name}</strong><p>{shortText(topic.text || `${topic.sentiment ?? "Unknown"} feedback reported by Amazon.`)}</p></div></li>)}</ul></> : <p className="chart-note">No feedback supplied for this section.</p>;
+  // Prefer the supplied topic description; fall back only to its observed sentiment. Source metadata stays in the report.
+  return topics.length > 0 ? <><ul className="finding-list topic-feedback">{topics.map((topic, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><strong>{topic.name}</strong><p>{shortText(topic.text || `${topic.sentiment ?? "Unknown"} feedback reported by Amazon.`)}</p></div></li>)}</ul></> : <p className="chart-note">No feedback supplied for this section.</p>;
 }
 
 // Accept overall histogram shares and render the demo ring. This component does not classify text or call an API.
@@ -59,12 +59,12 @@ function RatingSentiment({ percentages }: { percentages: ReturnType<typeof overa
     { label: "Neutral", range: "3★", value: percentages.neutral, tone: "neutral" },
     { label: "Negative", range: "1★–2★", value: percentages.negative, tone: "negative" },
   ];
-  return <section className="card sentiment-card" aria-label="Overall rating sentiment"><h3>Review Sentiment <span>(Amazon ratings)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map((group, i) => {
+  return <section className="card sentiment-card" aria-label="Overall rating sentiment"><h3>Review Sentiment</h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map((group, i) => {
     // Earlier shares determine this arc's start position; unknown shares add no visible segment.
     const start = groups.slice(0, i).reduce((sum, previous) => sum + (previous.value ?? 0), 0);
     // Skip unknown shares. pathLength=100 makes the arc length a percentage; the legend still displays N/A.
     return group.value == null ? null : <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${group.value} ${100 - group.value}`} strokeDashoffset={-start} />;
-  })}</svg><div className="donut-center"><strong>{percentages.positive == null ? "N/A" : `${percentages.positive}%`}</strong><span>Positive</span></div></div><ul className="sentiment-legend">{groups.map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.value == null ? "N/A" : `${group.value}%`}</strong></li>)}</ul></div><p className="chart-note">Based on Amazon’s overall star-rating distribution.</p></section>;
+  })}</svg><div className="donut-center"><strong>{percentages.positive == null ? "N/A" : `${percentages.positive}%`}</strong><span>Positive</span></div></div><ul className="sentiment-legend">{groups.map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.value == null ? "N/A" : `${group.value}%`}</strong></li>)}</ul></div></section>;
 }
 
 // Render a decorative SVG on each side of the verdict title; mirror flips the second ornament through CSS.
@@ -131,7 +131,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
           {/* Map the observed label/value list into a definition list; omit the section when no specs arrived. */}
           {product.specifications.length > 0 && <dl className="product-specs">{product.specifications.map((spec, index) => <div key={index}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>)}</dl>}
           {/* Explain cache reuse to the user; viewing this report did not start another AI request. */}
-          {result.cached && <p className="cache-label">Cached analysis · no new AI call</p>}
+          {!demoMode && result.cached && <p className="cache-label">Cached analysis · no new AI call</p>}
     {/* Show available Amazon AI summary/topics with explicit source labels; topic counts are not failure rates. */}
     {!hideSourceEvidence && (product.customers_say || product.feedback_topics.length > 0) && <section className="amazon-summary" aria-label="Amazon customer summary"><h3>Customers say <span>Amazon AI-generated summary</span></h3>{product.customers_say && <p>{product.customers_say}</p>}<div className="feedback-topics">{product.feedback_topics.map((topic, i) => <div key={i} className={`feedback-topic topic-${topic.sentiment ?? "unknown"}`}><strong>{topic.name}</strong><span>{topic.sentiment ?? "Sentiment unavailable"}{topic.mention_count != null && ` · ${topic.mention_count} mentions`}</span>{(topic.positive_count != null || topic.negative_count != null) && <span>{topic.positive_count != null ? `${topic.positive_count} positive` : ""}{topic.positive_count != null && topic.negative_count != null ? " · " : ""}{topic.negative_count != null ? `${topic.negative_count} negative` : ""}</span>}{topic.text && <p>{topic.text}</p>}</div>)}</div><p className="chart-note">Amazon’s summary and topics are secondary evidence. Mention counts are not failure rates.</p></section>}
         </div>
@@ -148,7 +148,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
         const percentage = product.rating_distribution.find(b => b.stars === stars)?.percentage;
         // Use zero only for the empty visual width; keep the label N/A when the underlying percentage is missing.
         return <div className="rating-bar-row" key={stars}><span>{stars} ★</span><div className="bar-track" aria-hidden><div className={`bar-fill star-${stars}`} style={{ width: `${percentage ?? 0}%` }} /></div><span className="bar-value">{percentage == null ? "N/A" : `${percentage}%`}</span></div>;
-      })}</div><p className="chart-note">Amazon overall ratings. N/A means unavailable.</p></section>
+      })}</div>{!demoMode && <p className="chart-note">Amazon overall ratings. N/A means unavailable.</p>}</section>
       {/* Demo Mode uses overall rating percentages; other workflows retain the written-review sample ring. */}
       {demoMode ? <RatingSentiment percentages={percentages} /> : <section className="card sentiment-card" aria-label="Written review sample"><h3>Review Sentiment <span>({result.reviews.length} collected)</span></h3><div className="sentiment-content"><div className="donut"><svg viewBox="0 0 100 100" aria-hidden><circle className="donut-track" cx="50" cy="50" r="42" fill="none" strokeWidth="10" />{groups.map(group => {
         // Convert this group count to a share of the collected sample, guarding against division by zero.
@@ -159,11 +159,11 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
         return <circle key={group.tone} className={`donut-segment ${group.tone}`} cx="50" cy="50" r="42" fill="none" strokeWidth="10" pathLength="100" strokeDasharray={`${percentage} ${100 - percentage}`} strokeDashoffset={-start} />;
       })}</svg><div className="donut-center"><strong>{result.reviews.length}</strong><span>Reviews</span></div></div><ul className="sentiment-legend">{groups.filter(g => g.tone !== "unrated" || g.count > 0).map(group => <li key={group.tone}><span className={`legend-dot ${group.tone}`} /><span>{group.label}<small>{group.range}</small></span><strong>{group.count}</strong></li>)}</ul></div><p className="chart-note">Accessible product-page reviews. Not overall satisfaction. {result.coverage.reviews_analyzed} AI analyzed.</p></section>}
       {/* Use the shared overall-rating calculation for these tiles, never the ring sample proportions. */}
-      <section className="card percentage-card" aria-label="Overall Amazon rating percentages"><h3>Key Percentages <span>(Amazon overall ratings)</span></h3><div className="percentage-grid">{[
+      <section className="card percentage-card" aria-label="Overall Amazon rating percentages"><h3>Key Percentages {!demoMode && <span>(Amazon overall ratings)</span>}</h3><div className="percentage-grid">{[
         { name: "Positive", tone: "positive", value: percentages.positive, Icon: ThumbsUp },
         { name: "Neutral", tone: "neutral", value: percentages.neutral, Icon: Minus },
         { name: "Negative", tone: "negative", value: percentages.negative, Icon: ThumbsDown },
-      ].map(({ name, tone, value, Icon }) => <div className="percentage-tile" key={name}><span className={`percentage-icon ${tone}`}><Icon size={17} aria-hidden /></span><strong>{value == null ? "N/A" : `${value}%`}</strong><span>{name}</span></div>)}</div><p className="chart-note">4–5★ / 3★ / 1–2★ · unavailable buckets stay N/A.</p></section>
+      ].map(({ name, tone, value, Icon }) => <div className="percentage-tile" key={name}><span className={`percentage-icon ${tone}`}><Icon size={17} aria-hidden /></span><strong>{value == null ? "N/A" : `${value}%`}</strong><span>{name}</span></div>)}</div>{!demoMode && <p className="chart-note">4–5★ / 3★ / 1–2★ · unavailable buckets stay N/A.</p>}</section>
     </div>
 
 

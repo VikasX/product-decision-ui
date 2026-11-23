@@ -112,7 +112,9 @@ test("existing report cards render separately labelled Amazon sources and scoped
   assert.match(demo, /stroke-dasharray="12 88"/);
   assert.match(demo, /stroke-dasharray="32 68"/);
   assert.match(demo, /Customers report poor adhesion/);
-  assert.match(demo, /Amazon AI customer summary/);
+  assert.doesNotMatch(demo, /Amazon AI customer summary|Amazon AI summary evidence|Cached analysis · no new AI call/);
+  assert.doesNotMatch(demo, /Amazon overall ratings\. N\/A|Based on Amazon’s overall star-rating distribution|unavailable buckets stay N\/A/);
+  assert.doesNotMatch(demo, /\(Amazon overall ratings\)|\(Amazon ratings\)/);
   assert.doesNotMatch(demo, /More Evidence Needed|LONG_MODEL_PARAGRAPH|Evidence Limitations|Supporting Reviews|Export Report|0 collected|No directly cited/);
 });
 
