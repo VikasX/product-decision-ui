@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Lightbulb, LoaderCircle, Package, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Check, Headphones, Lightbulb, LoaderCircle, Package, Sparkles, Star } from "lucide-react";
 import { AnalysisResults } from "@/components/analysis-results";
 import { analyzeDemoProduct, demoImageUrl, getDemoCategories, getDemoEvidence, getDemoProducts } from "@/services/demo-api";
 import type { DemoCategory, DemoEvidence, DemoProduct } from "@/services/demo-api";
@@ -131,8 +131,10 @@ export function DemoCatalog() {
   return <section className="demo-catalog" aria-label="Saved product catalog">
     {/* Map real category records to tabs; disable switching during analysis to keep the report tied to its selection. */}
     <div className="demo-categories" role="tablist" aria-label="Product categories">
-      {categories.map(c => <button key={c.id} role="tab" aria-selected={category === c.id} disabled={analyzing} onClick={() => void chooseCategory(c.id)}><Lightbulb size={18} aria-hidden />{c.name}<span>{c.product_count}</span></button>)}
+      {categories.map(c => <button key={c.id} role="tab" aria-selected={category === c.id} disabled={analyzing} onClick={() => void chooseCategory(c.id)}><span className="category-icon">{c.id === "headphone" ? <Headphones size={18} aria-hidden /> : <Lightbulb size={18} aria-hidden />}</span>{c.name}<span>{c.product_count}</span></button>)}
     </div>
+    {category && <div className="demo-section-heading"><h2>{category === "headphone" ? <Headphones size={20} aria-hidden /> : <Lightbulb size={20} aria-hidden />}{categories.find(item => item.id === category)?.name}</h2><span>Select a product to explore</span></div>}
+    <div className="demo-selection">
     {/* Catalog loading and an empty catalog have separate messages, so a pending request is not mistaken for no data. */}
     {loading && <p role="status" className="demo-status"><LoaderCircle size={18} className="animate-spin" aria-hidden />Loading saved products…</p>}
     {!loading && !categories.length && !error && <p className="demo-status">No saved product datasets are available yet.</p>}
@@ -154,6 +156,7 @@ export function DemoCatalog() {
       {/* Require loaded evidence and prevent duplicate clicks; this is the only button that submits analysis. */}
       <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button>
     </div>}
+    </div>
     {/* Display the safe API/validation message without treating it as a product verdict. */}
     {error && <p role="alert" className="analysis-error">{error}</p>}
     {/* Show one shared dashboard only after Analyze; choosing a different product clears the previous result. */}
