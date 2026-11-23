@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
 const { parseAnalysis } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`);
 const reportSource = await readFile(new URL("../src/services/report.ts", import.meta.url), "utf8");
 const reportCompiled = ts.transpileModule(reportSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-const { overallPercentages, sampleGroups, reportText, verdictLabels } = await import(`data:text/javascript;base64,${Buffer.from(reportCompiled.outputText).toString("base64")}`);
+const { overallPercentages, sampleGroups, reportText, verdictLabels, productDisplayName, reliabilityTopics } = await import(`data:text/javascript;base64,${Buffer.from(reportCompiled.outputText).toString("base64")}`);
 
 function response() {
   return {
@@ -116,6 +116,35 @@ test("existing report cards render separately labelled Amazon sources and scoped
   assert.doesNotMatch(demo, /Amazon overall ratings\. N\/A|Based on Amazon’s overall star-rating distribution|unavailable buckets stay N\/A/);
   assert.doesNotMatch(demo, /\(Amazon overall ratings\)|\(Amazon ratings\)/);
   assert.doesNotMatch(demo, /More Evidence Needed|LONG_MODEL_PARAGRAPH|Evidence Limitations|Supporting Reviews|Export Report|0 collected|No directly cited/);
+
+  // A phone does not need a topic literally named Reliability to show its supplied dependability evidence.
+  saved.product.title = "Samsung Galaxy A56 5G";
+  saved.product.feedback_topics = [
+    { name: "Appearance", sentiment: "positive", text: "Premium appearance." },
+    { name: "Performance", sentiment: "positive", text: "Handles basic tasks well." },
+    { name: "Battery life", sentiment: "mixed", text: "Some report all-day battery, others quick drain." },
+    { name: "Heat", sentiment: "mixed", text: "Customers report heating issues." },
+  ];
+  const phone = renderToStaticMarkup(createElement(AnalysisResults, { result: parseAnalysis(saved), hideSourceEvidence: true, demoMode: true }));
+  const reliabilityCard = phone.split('class="card insight-card reliability-insights"')[1];
+  assert.match(reliabilityCard, /Handles basic tasks well/);
+  assert.match(reliabilityCard, /Some report all-day battery, others quick drain/);
+  assert.match(reliabilityCard, /Customers report heating issues/);
+  assert.doesNotMatch(reliabilityCard, /No feedback supplied|Premium appearance/);
+});
+
+test("display names stay concise without changing stored source titles", () => {
+  assert.equal(productDisplayName("Gesto 5V USB Led Strip Light – Music Sync RGB Multicolor Background Lighting"), "Gesto RGB LED Strip");
+  assert.equal(productDisplayName("boAt Rockerz 411, 40Ms Low Latency, 40Hrs Battery, Bluetooth Headphones"), "boAt Rockerz 411");
+  assert.equal(productDisplayName("Samsung Galaxy A56 5G"), "Samsung Galaxy A56 5G");
+});
+
+test("reliability topics cover different product categories and preserve unknown evidence", () => {
+  const topics = ["Appearance", "Battery life", "Heat", "Reliability", "Performance", "Warranty"].map(name => ({ name }));
+  assert.deepEqual(reliabilityTopics(topics).map(t => t.name), ["Reliability", "Battery life", "Heat"]);
+  assert.deepEqual(reliabilityTopics([{ name: "Durability" }, { name: "Charging" }, { name: "Connectivity" }]).map(t => t.name), ["Durability", "Charging", "Connectivity"]);
+  assert.deepEqual(reliabilityTopics([{ name: "Appearance" }, { name: "Color options" }]), []);
+  assert.deepEqual(topics.map(t => t.name), ["Appearance", "Battery life", "Heat", "Reliability", "Performance", "Warranty"]);
 });
 
 test("preserves supplied rating metadata, findings and verified source references", () => {

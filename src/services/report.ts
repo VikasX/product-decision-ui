@@ -1,4 +1,22 @@
-import type { ProductAnalysis, Review } from "@/types/api";
+import type { FeedbackTopic, ProductAnalysis, Review } from "@/types/api";
+
+// Keep catalog/report headings readable without changing original titles used as evidence or cache inputs.
+export function productDisplayName(title: string): string {
+  if (/^gesto\s+5v\s+usb\s+led\s+strip/i.test(title)) return "Gesto RGB LED Strip";
+  if (/^boat\s+rockerz\s+411\b/i.test(title)) return "boAt Rockerz 411";
+  return shortText(title, 70);
+}
+
+// Products use different topic names for day-to-day dependability. Select supplied evidence, never invent findings.
+const reliabilityTopicPattern = /reliability|durability|longevity|lifespan|battery|heat|performance|connectivity|charging|build quality|warranty|after.sales|support/i;
+
+export function reliabilityTopics(topics: FeedbackTopic[]): FeedbackTopic[] {
+  // An explicit Reliability topic comes first; retain source order for other relevant topics and keep cards concise.
+  return [
+    ...topics.filter(topic => /^reliability$/i.test(topic.name)),
+    ...topics.filter(topic => !/^reliability$/i.test(topic.name) && reliabilityTopicPattern.test(topic.name)),
+  ].slice(0, 3);
+}
 
 // Keep readable labels in one place for the rendered report and its text export.
 export const verdictLabels = {

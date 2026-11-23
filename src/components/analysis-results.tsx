@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Download, ExternalLink, FileText, Minus, Package, ShieldCheck, Star, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
 import { createContext, useContext } from "react";
 import type { AmazonFinding, FeedbackTopic, Finding, ProductAnalysis, Review } from "@/types/api";
-import { overallPercentages, ratingOverview, reportText, sampleGroups, shortText, verdictLabels } from "@/services/report";
+import { overallPercentages, productDisplayName, ratingOverview, reliabilityTopics, reportText, sampleGroups, shortText, verdictLabels } from "@/services/report";
 
 // Translate fixed API issue categories into readable labels; these do not change the model verdict.
 const issueLabels = { product_defect: "Reported defect", delivery: "Delivery", subjective_preference: "Personal preference", missing_feature: "Missing functionality", usability: "Usability", other: "Other concern" };
@@ -84,7 +84,10 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
   const positive = result.amazon_findings.filter(f => f.sentiment === "positive");
   // Filter existing supported concerns; no sentiment is inferred from topic mention counts here.
   const negative = result.amazon_findings.filter(f => f.sentiment === "negative");
-  // Keep mixed claims separate from explicitly negative findings.
+  // The original report still groups mixed claims separately from explicitly negative findings.
+  const reliability = reliabilityTopics(product.feedback_topics);
+  // Only put secondary findings in this card when their exact topic concerns dependability.
+  const reliabilityFindings = result.amazon_findings.filter(f => f.source === "topic" && reliability.some(topic => topic.name === f.topic));
   const mixed = result.amazon_findings.filter(f => f.sentiment === "mixed");
   // Fallback concerns use up to three saved topics: negative first, then mixed, without inventing review IDs.
   const concernTopics = [...product.feedback_topics.filter(t => t.sentiment === "negative"), ...product.feedback_topics.filter(t => t.sentiment === "mixed")].slice(0, 3);
@@ -119,7 +122,7 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
           <img src={product.image_url} alt={product.title} referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement!.style.display = "none"; }} />
         </div>}
         {/* Link the title to the real product page; use the ASIN as a display fallback. */}
-        <div className="product-copy"><h2><a href={product.url} target="_blank" rel="noopener noreferrer">{product.title || product.asin}<ExternalLink size={14} aria-label="Opens Amazon" /></a></h2>
+        <div className="product-copy"><h2><a href={product.url} target="_blank" rel="noopener noreferrer">{productDisplayName(product.title) || product.asin}<ExternalLink size={14} aria-label="Opens Amazon" /></a></h2>
           {/* Keep the marketplace label and product ID visible so users know which listing was analyzed. */}
           <div className="product-meta"><span className="amazon-badge"><b>a</b> Amazon.in</span><span>ASIN · {product.asin}</span></div>
           {/* Show the numeric average and count only when known; filled star icons are a rounded visual aid. */}
@@ -173,8 +176,8 @@ export function AnalysisResults({ result, idPrefix = "", hideSourceEvidence = fa
       <section className="card insight-card positive-insights"><h3><ThumbsUp size={19} aria-hidden />What Buyers Like</h3>{(!demoMode || Boolean(result.positive_findings?.length)) && <FindingList findings={result.positive_findings} reviews={result.reviews} />}{demoMode && !positive.length ? <TopicFeedback topics={product.feedback_topics.filter(t => t.sentiment === "positive").slice(0, 2)} /> : <AmazonFindings findings={positive} compact={demoMode} />}</section>
       {/* Show supported direct-review concerns and negative Amazon AI findings, not guessed complaint rates. */}
       <section className="card insight-card concern-insights"><h3><TriangleAlert size={19} aria-hidden />Common Concerns</h3>{(!demoMode || Boolean(result.negative_findings?.length)) && <FindingList findings={result.negative_findings} reviews={result.reviews} />}{demoMode && !negative.length ? <TopicFeedback topics={concernTopics} /> : <AmazonFindings findings={negative} compact={demoMode} />}</section>
-      {/* Mixed Amazon AI findings appear alongside direct reliability evidence; neither claims independent testing. */}
-      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3>{(!demoMode || Boolean(result.reliability_findings?.length)) && <FindingList findings={result.reliability_findings} reviews={result.reviews} />}{demoMode && !mixed.length ? <TopicFeedback topics={product.feedback_topics.filter(t => /reliability/i.test(t.name)).slice(0, 1)} /> : <AmazonFindings findings={mixed} compact={demoMode} />}
+      {/* Demo reliability uses relevant supplied topic evidence, without interpreting unrelated mixed feedback as reliability. */}
+      <section className="card insight-card reliability-insights"><h3><ShieldCheck size={19} aria-hidden />Reliability Insights</h3>{(!demoMode || Boolean(result.reliability_findings?.length)) && <FindingList findings={result.reliability_findings} reviews={result.reviews} />}{demoMode ? (reliabilityFindings.length ? <AmazonFindings findings={reliabilityFindings} compact /> : <TopicFeedback topics={reliability} />) : <AmazonFindings findings={mixed} />}
         {/* Render recurring concerns only when the validated API supplied them, including actual distinct citation counts. */}
         {!demoMode && result.recurring_issues && result.recurring_issues.length > 0 && <div className="recurring-issues">{result.recurring_issues.map((issue, index) => <div key={index}><p className="issue-label">{issueLabels[issue.category]} · {issue.mention_count} cited reviews</p><p>{issue.text}</p><ReviewLinks ids={issue.review_ids} reviews={result.reviews} /></div>)}</div>}
         {/* Omit this block for older or incomplete reports that have no practical takeaway. */}

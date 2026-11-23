@@ -2,11 +2,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Headphones, Lightbulb, LoaderCircle, Package, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Check, Headphones, Laptop, Lightbulb, LoaderCircle, Package, Smartphone, Sparkles, Star, Tv } from "lucide-react";
 import { AnalysisResults } from "@/components/analysis-results";
 import { analyzeDemoProduct, demoImageUrl, getDemoCategories, getDemoEvidence, getDemoProducts } from "@/services/demo-api";
 import type { DemoCategory, DemoEvidence, DemoProduct } from "@/services/demo-api";
 import type { ProductAnalysis } from "@/types/api";
+import { productDisplayName } from "@/services/report";
+
+// A category's icon is presentation only; unknown future categories get a generic product icon.
+function CategoryIcon({ id, size }: { id: string; size: number }) {
+  const icons = { led: Lightbulb, headphone: Headphones, mobile: Smartphone, laptop: Laptop, tv: Tv };
+  const Icon = icons[id as keyof typeof icons] ?? Package;
+  return <Icon size={size} aria-hidden />;
+}
+
+// Clip a filled five-star row to the actual average, so 3.4 is not rounded up to four stars.
+function RatingStars({ rating }: { rating: number }) {
+  return <span className="demo-stars" aria-hidden>
+    <span>{Array.from({ length: 5 }, (_, index) => <Star key={index} size={13} />)}</span>
+    <span className="demo-stars-fill" style={{ width: `${Math.max(0, Math.min(5, rating)) * 20}%` }}>{Array.from({ length: 5 }, (_, index) => <Star key={index} size={13} fill="currentColor" />)}</span>
+  </span>;
+}
 
 // Browse saved evidence freely. A model request happens only after the Analyze button is pressed.
 export function DemoCatalog() {
@@ -131,9 +147,9 @@ export function DemoCatalog() {
   return <section className="demo-catalog" aria-label="Saved product catalog">
     {/* Map real category records to tabs; disable switching during analysis to keep the report tied to its selection. */}
     <div className="demo-categories" role="tablist" aria-label="Product categories">
-      {categories.map(c => <button key={c.id} role="tab" aria-selected={category === c.id} disabled={analyzing} onClick={() => void chooseCategory(c.id)}><span className="category-icon">{c.id === "headphone" ? <Headphones size={18} aria-hidden /> : <Lightbulb size={18} aria-hidden />}</span>{c.name}<span>{c.product_count}</span></button>)}
+      {categories.map(c => <button key={c.id} role="tab" aria-selected={category === c.id} disabled={analyzing} onClick={() => void chooseCategory(c.id)}><span className="category-icon"><CategoryIcon id={c.id} size={20} /></span>{c.name}</button>)}
     </div>
-    {category && <div className="demo-section-heading"><h2>{category === "headphone" ? <Headphones size={20} aria-hidden /> : <Lightbulb size={20} aria-hidden />}{categories.find(item => item.id === category)?.name}</h2><span>Select a product to explore</span></div>}
+    {category && <div className="demo-section-heading"><h2><CategoryIcon id={category} size={20} />{categories.find(item => item.id === category)?.name}</h2></div>}
     <div className="demo-selection">
     {/* Catalog loading and an empty catalog have separate messages, so a pending request is not mistaken for no data. */}
     {loading && <p role="status" className="demo-status"><LoaderCircle size={18} className="animate-spin" aria-hidden />Loading saved products…</p>}
@@ -141,21 +157,22 @@ export function DemoCatalog() {
     {/* Create cards only for saved backend records. A click selects/loads evidence and does not invoke the model. */}
     {products.length > 0 && <>
       <div className="demo-products">{products.map(product => <button type="button" key={product.id} className={`demo-product card ${selected?.id === product.id ? "is-selected" : ""}`} aria-pressed={selected?.id === product.id} disabled={analyzing} onClick={() => void chooseProduct(product)}>
-        <span className="demo-data-badge">{selected?.id === product.id ? <><Check size={12} aria-hidden />Selected</> : "Saved data"}</span>
+        {/* Only the active card needs a badge; the others stay visually quiet. */}
+        {selected?.id === product.id && <span className="demo-data-badge"><Check size={12} aria-hidden />Selected</span>}
         <span className="demo-product-image">{product.image_path ? <>
           {/* Display the local product photo; the card no longer depends on a full source screenshot. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${demoImageUrl(product.image_path)}?v=${product.version}`} alt={product.title} />
+          <img src={`${demoImageUrl(product.image_path)}?v=${product.version}`} alt={productDisplayName(product.title)} />
         </> : <Package size={52} aria-hidden />}</span>
-        <strong>{product.title}</strong><span className="demo-rating"><Star size={14} fill="currentColor" aria-hidden />{product.overall_rating ?? "Rating unavailable"}{product.rating_count !== null && <small>({product.rating_count.toLocaleString("en-IN")} ratings)</small>}</span>
+        <strong title={product.title}>{productDisplayName(product.title)}</strong><span className="demo-rating">{product.overall_rating !== null && <RatingStars rating={product.overall_rating} />}<span className="demo-rating-value">{product.overall_rating ?? "Rating unavailable"}</span>{product.rating_count !== null && <small>({product.rating_count.toLocaleString("en-IN")} ratings)</small>}</span>
         {product.price_text && <b className="demo-price">{product.price_text}</b>}
       </button>)}</div>
     </>}
     {/* The developer flag controls selector visibility only; the backend separately restricts LangChain access. */}
-    {selected && <div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
+    {selected && <div className="demo-selection-bar"><strong>{productDisplayName(selected.title)}</strong><div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
       {/* Require loaded evidence and prevent duplicate clicks; this is the only button that submits analysis. */}
       <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button>
-    </div>}
+    </div></div>}
     </div>
     {/* Display the safe API/validation message without treating it as a product verdict. */}
     {error && <p role="alert" className="analysis-error">{error}</p>}
