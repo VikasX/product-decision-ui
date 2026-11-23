@@ -12,7 +12,7 @@ const parser = await compile("../src/services/parse-analysis.ts");
 const api = await compile("../src/services/api.ts", { "@/services/parse-analysis": parser });
 const demo = await import(await compile("../src/services/demo-api.ts", { "@/services/parse-analysis": parser, "@/services/api": api }));
 const { overallPercentages } = await import(await compile("../src/services/report.ts"));
-const product = { id: "prd1", category_id: "led", version: 1, title: "Gesto LED strip", price_text: "₹399", overall_rating: 3.4, rating_count: 374, image_path: "/api/v1/demo/products/prd1/image" };
+const product = { id: "prd1", category_id: "led", version: 1, title: "Gesto LED strip", price_text: "₹399", overall_rating: 3.4, rating_count: 374, image_path: "/api/v1/demo/products/prd1/image", analysis_ready: true };
 const report = { status: "completed", verdict: "proceed_with_caution", summary: "Mocked analysis for test only.", product: { asin: "B0D5Q7RWF6", url: "https://www.amazon.in/dp/B0D5Q7RWF6", title: product.title, rating_distribution: [{ stars: 5, percentage: 44 }, { stars: 4, percentage: 12 }, { stars: 3, percentage: 12 }, { stars: 2, percentage: 6 }, { stars: 1, percentage: 26 }] }, reviews: [], reasons: [], coverage: { reviews_analyzed: 0, limitations: ["Test mock; secondary screenshot evidence only."] }, cached: true };
 
 test("browsing categories/products/evidence makes GET requests only", async t => {
@@ -31,30 +31,37 @@ test("browsing categories/products/evidence makes GET requests only", async t =>
   assert.ok(requests.every(r => !r.url.includes("/analysis")));
 });
 
-test("explicit analysis uses saved product endpoint and shared response validation", async t => {
+test("view analysis reads the permanent report with GET and shared response validation", async t => {
   const requests = [];
   t.mock.method(globalThis, "fetch", async (url, options) => { requests.push({ url, options }); return Response.json(report); });
   const signal = new AbortController().signal;
-  const result = await demo.analyzeDemoProduct("prd1", signal);
-  assert.ok(requests[0].url.endsWith("/demo/products/prd1/analysis?workflow=httpx"));
-  assert.equal(requests[0].options.method, "POST");
+  const result = await demo.getDemoAnalysis("prd1", signal);
+  assert.ok(requests[0].url.endsWith("/demo/products/prd1/analysis"));
+  assert.ok(!requests[0].options.method || requests[0].options.method === "GET");
   assert.equal(requests[0].options.signal, signal);
   assert.equal(result.cached, true);
   assert.equal(result.reviews.length, 0);
   assert.deepEqual(overallPercentages(result.product.rating_distribution), { positive: 56, neutral: 12, negative: 32 });
-  await demo.analyzeDemoProduct("prd1", signal, "langchain");
-  assert.ok(requests[1].url.endsWith("workflow=langchain"));
+  assert.ok(!requests[0].url.includes("workflow="));
+  assert.equal(requests.length, 1);
 });
 
 test("malformed catalog, remote images and unsupported evidence are rejected", async t => {
   const mock = t.mock.method(globalThis, "fetch", async () => Response.json([{ ...product, image_path: "https://untrusted.test/image" }]));
   await assert.rejects(demo.getDemoProducts("led", new AbortController().signal), /invalid saved product/);
   mock.mock.mockImplementation(async () => Response.json({ ...report, verdict: "invented" }));
-  await assert.rejects(demo.analyzeDemoProduct("prd1", new AbortController().signal), /invalid analysis/);
+  await assert.rejects(demo.getDemoAnalysis("prd1", new AbortController().signal), /invalid analysis/);
 });
 
-test("budget/access errors remain visible and never retry", async t => {
+test("failed report reads never retry or fall back to generation", async t => {
   const mock = t.mock.method(globalThis, "fetch", async () => Response.json({ detail: "Shared AI budget storage is unavailable." }, { status: 503 }));
-  await assert.rejects(demo.analyzeDemoProduct("prd1", new AbortController().signal), /budget storage/);
+  await assert.rejects(demo.getDemoAnalysis("prd1", new AbortController().signal), /503/);
   assert.equal(mock.mock.callCount(), 1);
+});
+
+test("products without an AI report remain in the catalog for source-only details", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json([{ ...product, analysis_ready: false }]));
+  const products = await demo.getDemoProducts("led", new AbortController().signal);
+  assert.equal(products.length, 1);
+  assert.equal(products[0].analysis_ready, false);
 });

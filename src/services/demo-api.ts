@@ -6,6 +6,7 @@ import type { ProductAnalysis } from "@/types/api";
 export type DemoCategory = { id: string; name: string; product_count: number };
 // Product-card response. Unknown price, rating or image fields remain null rather than fabricated defaults.
 export type DemoProduct = {
+  analysis_ready: boolean;
   id: string; category_id: string; version: number; title: string;
   price_text: string | null; overall_rating: number | null; rating_count: number | null;
   image_path: string | null;
@@ -39,7 +40,7 @@ export async function getDemoProducts(category: string, signal: AbortSignal): Pr
   // Encode the selected ID as one URL segment and forward cancellation to fetch.
   const data = await (await apiGet(`/api/v1/demo/categories/${encodeURIComponent(category)}/products`, signal)).json();
   // Check category ownership, version, optional numeric bounds and the exact permitted image endpoint.
-  if (!Array.isArray(data) || data.some(p => !validId(p?.id) || p.category_id !== category || typeof p.title !== "string" || !Number.isSafeInteger(p.version) || p.version < 1 ||
+  if (!Array.isArray(data) || data.some(p => !validId(p?.id) || p.category_id !== category || typeof p.analysis_ready !== "boolean" || typeof p.title !== "string" || !Number.isSafeInteger(p.version) || p.version < 1 ||
     (p.price_text !== null && typeof p.price_text !== "string") ||
     (p.overall_rating !== null && (typeof p.overall_rating !== "number" || p.overall_rating < 1 || p.overall_rating > 5)) ||
     (p.rating_count !== null && (!Number.isSafeInteger(p.rating_count) || p.rating_count < 0)) ||
@@ -67,13 +68,12 @@ export function demoImageUrl(path: string): string {
   return baseUrl.replace(/\/+$/, "") + path;
 }
 
-// Only this explicit user action can start a guarded paid analysis; the backend owns cache reuse.
-export async function analyzeDemoProduct(id: string, signal: AbortSignal, workflow: "httpx" | "langchain" = "httpx"): Promise<ProductAnalysis> {
-  // Send only the chosen ID/workflow. The server loads trusted saved evidence and owns all cost/cache decisions.
-  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1/demo/products/${encodeURIComponent(id)}/analysis?workflow=${workflow}`, { method: "POST", signal });
+// Public clicks only read permanent reports; missing files must never fall back to model generation.
+export async function getDemoAnalysis(id: string, signal: AbortSignal): Promise<ProductAnalysis> {
+  const response = await apiGet(`/api/v1/demo/products/${encodeURIComponent(id)}/analysis`, signal);
   // A proxy may return a non-JSON error; null keeps that failure on the controlled error path.
   const data = await response.json().catch(() => null);
-  // Preserve the safe backend explanation for budget/provider failures instead of interpreting it as a report.
+  // Preserve safe transport errors instead of interpreting them as a product verdict.
   if (!response.ok) throw new Error(typeof data?.detail === "string" ? data.detail : `Saved product analysis failed (${response.status}).`);
   // Validate the full report contract before allowing React to render charts or findings.
   return parseAnalysis(data);

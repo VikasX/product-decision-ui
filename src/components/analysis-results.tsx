@@ -46,7 +46,7 @@ function AmazonFindings({ findings, compact = false }: { findings: AmazonFinding
 }
 
 // Show saved Amazon topics when model findings are absent. These are secondary evidence, not direct review citations.
-function TopicFeedback({ topics }: { topics: FeedbackTopic[] }) {
+export function TopicFeedback({ topics }: { topics: FeedbackTopic[] }) {
   // Prefer the supplied topic description; fall back only to its observed sentiment. Source metadata stays in the report.
   return topics.length > 0 ? <><ul className="finding-list topic-feedback">{topics.map((topic, i) => <li key={i}><Check size={16} className="finding-check" aria-hidden /><div><strong>{topic.name}</strong><p>{shortText(topic.text || `${topic.sentiment ?? "Unknown"} feedback reported by Amazon.`)}</p></div></li>)}</ul></> : <p className="chart-note">No feedback supplied for this section.</p>;
 }

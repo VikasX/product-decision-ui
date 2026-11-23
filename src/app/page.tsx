@@ -2,7 +2,6 @@ import { ShoppingBag, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DemoCatalog } from "@/components/demo-catalog";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LangChainLab } from "@/components/langchain-lab";
 
 // The public experience browses saved evidence; original URL adapters remain available internally.
 export default function Home() {
@@ -19,8 +18,7 @@ export default function Home() {
       <p>Choose a product. Explore the evidence. Make a more confident buying decision.</p></div>
       {/* The client catalog owns category/product selection, saved-evidence loading and the explicit analysis action. */}
       <DemoCatalog />
-      {/* Build-time visibility only; the backend separately restricts access to the Lab endpoint. */}
-      {process.env.NEXT_PUBLIC_DEV_MODE === "true" && <LangChainLab />}
+      {/* Model adapters stay in private backend tooling; public builds have no generation controls. */}
     </main>
   </>;
 }

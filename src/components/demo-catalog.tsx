@@ -3,11 +3,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Headphones, Laptop, Lightbulb, LoaderCircle, Package, Smartphone, Sparkles, Star, Tv } from "lucide-react";
-import { AnalysisResults } from "@/components/analysis-results";
-import { analyzeDemoProduct, demoImageUrl, getDemoCategories, getDemoEvidence, getDemoProducts } from "@/services/demo-api";
+import { AnalysisResults, TopicFeedback } from "@/components/analysis-results";
+import { getDemoAnalysis, demoImageUrl, getDemoCategories, getDemoEvidence, getDemoProducts } from "@/services/demo-api";
 import type { DemoCategory, DemoEvidence, DemoProduct } from "@/services/demo-api";
 import type { ProductAnalysis } from "@/types/api";
-import { productDisplayName } from "@/services/report";
+import { productDisplayName, reliabilityTopics } from "@/services/report";
 
 // A category's icon is presentation only; unknown future categories get a generic product icon.
 function CategoryIcon({ id, size }: { id: string; size: number }) {
@@ -24,7 +24,7 @@ function RatingStars({ rating }: { rating: number }) {
   </span>;
 }
 
-// Browse saved evidence freely. A model request happens only after the Analyze button is pressed.
+// Browse ready products and read their permanent reports. This component never requests model generation.
 export function DemoCatalog() {
   // Available category tabs come from the backend manifest, not a hardcoded demo list.
   const [categories, setCategories] = useState<DemoCategory[]>([]);
@@ -34,7 +34,7 @@ export function DemoCatalog() {
   const [products, setProducts] = useState<DemoProduct[]>([]);
   // null means no product has been clicked yet; selecting a card does not start a paid analysis.
   const [selected, setSelected] = useState<DemoProduct | null>(null);
-  // Loading the saved dataset successfully enables Analyze; the raw evidence stays hidden on the homepage.
+  // Load saved evidence before enabling View Analysis; raw evidence stays hidden on the homepage.
   const [evidence, setEvidence] = useState<DemoEvidence | null>(null);
   // This loading flag covers catalog reads, independently of the longer AI analysis state.
   const [loading, setLoading] = useState(true);
@@ -44,11 +44,12 @@ export function DemoCatalog() {
   const [error, setError] = useState("");
   // Hold one validated report, or null before analysis and whenever the selection changes.
   const [result, setResult] = useState<ProductAnalysis | null>(null);
-  // HTTPX is the default adapter. The developer-only selector can request the separate local LangChain path.
-  const [workflow, setWorkflow] = useState<"httpx" | "langchain">("httpx");
+  // Product details use the real saved evidence when a private AI report has not been published yet.
+  // Keep this separate from result so source text is never presented as a generated AI report.
+  const [showDetails, setShowDetails] = useState(false);
   // Refs survive renders without causing another render; keep cancellation handles for in-flight work.
   const browseRequest = useRef<AbortController | null>(null);
-  // This immediate request handle also blocks rapid duplicate Analyze clicks before React updates its state.
+  // Block duplicate report reads immediately, before React updates the loading state.
   const analysisRequest = useRef<AbortController | null>(null);
 
   // Run once after mounting: load category tabs, then the first category. No model is called by this effect.
@@ -90,7 +91,7 @@ export function DemoCatalog() {
     // Give this read its own cancellation signal and remember it as the current browsing request.
     const controller = new AbortController(); browseRequest.current = controller;
     // Reset dependent state together: a different category invalidates its former selected product and report.
-    setCategory(id); setProducts([]); setSelected(null); setEvidence(null); setResult(null); setError(""); setLoading(true);
+    setCategory(id); setProducts([]); setSelected(null); setEvidence(null); setResult(null); setShowDetails(false); setError(""); setLoading(true);
     try {
       // Only small card records are fetched here; full evidence waits until a product is clicked.
       const items = await getDemoProducts(id, controller.signal);
@@ -102,7 +103,7 @@ export function DemoCatalog() {
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  // Input: a clicked card. Load its full saved JSON and return no report until Analyze is explicitly pressed.
+  // Input: a clicked card. Load saved evidence; show the report only after View Analysis is pressed.
   async function chooseProduct(product: DemoProduct) {
     // Cancel the old catalog/evidence read before starting work for the new selection.
     browseRequest.current?.abort();
@@ -110,11 +111,11 @@ export function DemoCatalog() {
     // Give this read its own cancellation signal and remember it as the current browsing request.
     const controller = new AbortController(); browseRequest.current = controller;
     // Show the selection immediately while clearing old evidence/results and waiting for the new dataset.
-    setSelected(product); setResult(null); setEvidence(null); setError("");
+    setSelected(product); setResult(null); setShowDetails(false); setEvidence(null); setError("");
     try {
       // This GET reads saved JSON only; choosing a product cannot spend OpenAI credit.
       const saved = await getDemoEvidence(product.id, controller.signal);
-      // Accept evidence only for a selection that is still active, then enable the Analyze button.
+      // Accept evidence only for the current selection, then enable View Analysis.
       if (!controller.signal.aborted) setEvidence(saved);
     // Fetch or validation failures become an alert; aborted work must not overwrite the latest screen.
     } catch (cause) {
@@ -122,18 +123,21 @@ export function DemoCatalog() {
     }
   }
 
-  // Explicit paid-work boundary: submit the chosen product ID and adapter, then store the validated report.
+  // Read the selected product's existing report; no adapter or generation option is sent by the browser.
   async function analyze() {
     // Require loaded evidence and reject duplicate submissions before making any analysis request.
     if (!selected || !evidence || analysisRequest.current) return;
+    // Every product stays useful. Missing reports show existing source details, never an error or a paid fallback.
+    if (!selected.analysis_ready) { setShowDetails(true); setResult(null); return; }
+    setShowDetails(false);
     // AbortController lets cleanup cancel fetches and prevents old responses from updating the current screen.
     // Store the handle synchronously so another click cannot create a second request during this render.
     const controller = new AbortController(); analysisRequest.current = controller;
     // Replace any previous report with a loading state instead of displaying it as this run's result.
     setAnalyzing(true); setError(""); setResult(null);
     try {
-      // The backend checks cache first; only an uncached, budget-approved request can invoke GPT-5 nano.
-      const report = await analyzeDemoProduct(selected.id, controller.signal, workflow);
+      // The public GET endpoint reads analysis.json only, independently of MongoDB/OpenAI availability.
+      const report = await getDemoAnalysis(selected.id, controller.signal);
       // A successful response has already passed frontend parsing; React now renders the shared dashboard.
       if (!controller.signal.aborted) setResult(report);
     // Fetch or validation failures become an alert; aborted work must not overwrite the latest screen.
@@ -168,18 +172,27 @@ export function DemoCatalog() {
         {product.price_text && <b className="demo-price">{product.price_text}</b>}
       </button>)}</div>
     </>}
-    {/* The developer flag controls selector visibility only; the backend separately restricts LangChain access. */}
-    {selected && <div className="demo-selection-bar"><strong>{productDisplayName(selected.title)}</strong><div className="demo-analyze-actions">{process.env.NEXT_PUBLIC_DEV_MODE === "true" && <label>Workflow<select value={workflow} disabled={analyzing} onChange={e => { setWorkflow(e.target.value as "httpx" | "langchain"); setResult(null); }}><option value="httpx">HTTPX / GPT-5 nano</option><option value="langchain">LangChain / GPT-5 nano (local Lab)</option></select></label>}
-      {/* Require loaded evidence and prevent duplicate clicks; this is the only button that submits analysis. */}
-      <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Analyzing…</> : <><Sparkles size={16} aria-hidden />Analyze Product<ArrowRight size={16} aria-hidden /></>}</button>
+    {/* Both model workflows remain in private backend tooling; the public action only reads a saved report. */}
+    {selected && <div className="demo-selection-bar"><strong>{productDisplayName(selected.title)}</strong><div className="demo-analyze-actions">
+      {/* Require loaded evidence and prevent duplicate report reads. This never submits paid work. */}
+      <button type="button" className="primary-button" disabled={!evidence || analyzing} onClick={() => void analyze()}>{analyzing ? <><LoaderCircle size={16} className="animate-spin" aria-hidden />Loading…</> : <><Sparkles size={16} aria-hidden />{selected.analysis_ready ? "View Analysis" : "View Details"}<ArrowRight size={16} aria-hidden /></>}</button>
     </div></div>}
     </div>
     {/* Display the safe API/validation message without treating it as a product verdict. */}
     {error && <p role="alert" className="analysis-error">{error}</p>}
-    {/* Show one shared dashboard only after Analyze; choosing a different product clears the previous result. */}
+    {/* Reuse the existing topic cards, but name this source-only view accurately and create no AI verdict. */}
+    {showDetails && evidence && <section className="demo-full-analysis demo-report" aria-label="Product Details"><h2>Product Details</h2>
+      {evidence.product.customers_say && <section className="card insight-card"><h3>Customer Feedback</h3><p>{evidence.product.customers_say}</p></section>}
+      <div className="three-column-grid insights-row">
+        {evidence.product.feedback_topics.some(t => t.sentiment === "positive") && <section className="card insight-card"><h3>What Buyers Like</h3><TopicFeedback topics={evidence.product.feedback_topics.filter(t => t.sentiment === "positive").slice(0, 3)} /></section>}
+        {evidence.product.feedback_topics.some(t => t.sentiment === "negative" || t.sentiment === "mixed") && <section className="card insight-card"><h3>Common Concerns</h3><TopicFeedback topics={[...evidence.product.feedback_topics.filter(t => t.sentiment === "negative"), ...evidence.product.feedback_topics.filter(t => t.sentiment === "mixed")].slice(0, 3)} /></section>}
+        {reliabilityTopics(evidence.product.feedback_topics).length > 0 && <section className="card insight-card"><h3>Reliability Insights</h3><TopicFeedback topics={reliabilityTopics(evidence.product.feedback_topics)} /></section>}
+      </div>
+    </section>}
+    {/* Show one shared dashboard after View Analysis; changing product clears the previous report. */}
     {(analyzing || result) && <section aria-label="Full Analysis" aria-busy={analyzing} className="demo-full-analysis"><h2>Full Analysis</h2>
       {/* Show progress only while working; adapter/cache details remain in the API response, not the dashboard. */}
-      {analyzing && <p role="status" className="demo-status">Analyzing product…</p>}
+      {analyzing && <p role="status" className="demo-status">Loading analysis…</p>}
       {/* Reuse the existing report with a demo anchor prefix and compact presentation; do not duplicate its cards. */}
       {result && <AnalysisResults result={result} idPrefix="demo-" hideSourceEvidence demoMode />}
     </section>}
